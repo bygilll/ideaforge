@@ -14,7 +14,7 @@ type ParsedResponse = {
   score?: number;
   whyThisScore?: string;
   scoreBreakdown?: ScoreBreakdown;
-  improvement?: string;
+  improvement?: string | string[];
   problem?: string;
   targetCustomer?: string;
   mvp?: string;
@@ -25,6 +25,59 @@ function clamp(value: unknown, min: number, max: number) {
   const num = typeof value === "number" ? value : Number(value ?? 0);
   if (Number.isNaN(num)) return min;
   return Math.max(min, Math.min(max, Math.round(num)));
+}
+
+function normalizeImprovement(value: unknown): string {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => `- ${String(item).replace(/^-+\s*/, "").trim()}`)
+      .join("\n");
+  }
+
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+
+  const lines = text
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  if (lines.length >= 2) {
+    return lines
+      .map((line) => `- ${line.replace(/^-+\s*/, "").trim()}`)
+      .join("\n");
+  }
+
+  const splitBySentence = text
+    .split(/(?<=[.!?다])\s+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .slice(0, 3);
+
+  return splitBySentence
+    .map((line) => `- ${line.replace(/^-+\s*/, "").trim()}`)
+    .join("\n");
+}
+
+function normalizeValidationPlan(value: unknown): string {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+
+  let normalized = text
+    .replace(/\r/g, "")
+    .replace(/(Day\s*\d+\s*:)/gi, "\n$1")
+    .replace(/(\d+\s*일차\s*:)/g, "\n$1")
+    .replace(/(\d+\s*일차)/g, "\n$1")
+    .replace(/(Day\s*\d+)/gi, "\n$1")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+
+  const lines = normalized
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  return lines.join("\n");
 }
 
 export async function POST(request: NextRequest) {
@@ -64,37 +117,38 @@ The required output language is ${outputLanguage}.
 You must write the entire response in ${outputLanguage} only.
 Do not mix languages.
 
-You must return VALID JSON only with these exact keys:
-"score", "whyThisScore", "scoreBreakdown", "improvement", "problem", "targetCustomer", "mvp", "validationPlan".
+Return VALID JSON only with these exact keys:
+"whyThisScore", "scoreBreakdown", "improvement", "problem", "targetCustomer", "mvp", "validationPlan".
 
 The "scoreBreakdown" object must have these exact keys:
 "problemSeverity", "customerUrgency", "mvpSimplicity", "monetizationPotential", "differentiationPotential".
 
 Scoring rubric:
-- problemSeverity: 0 to 20
-- customerUrgency: 0 to 20
-- mvpSimplicity: 0 to 20
-- monetizationPotential: 0 to 20
-- differentiationPotential: 0 to 20
+- Each scoreBreakdown field must be an integer from 0 to 20.
+- Do NOT return a separate total score.
+- The server will calculate the total score by summing the 5 category scores.
 
-Final score:
-- score = sum of the five category scores
-- return an integer from 0 to 100 only
-
-You must be critical and realistic.
+Evaluation rules:
+- problemSeverity: how painful and meaningful the problem is
+- customerUrgency: whether customers urgently want to solve it
+- mvpSimplicity: how easy and cheap it is to test quickly
+- monetizationPotential: whether users or businesses are likely to pay
+- differentiationPotential: whether the idea has defensible uniqueness
 
 If the input is meaningless, random text, or too vague to evaluate as a startup idea:
-- set a very low score
-- explain clearly that this is not a valid startup idea
+- keep all scoreBreakdown values very low
+- explain clearly why it is not a valid startup idea
 - still return valid JSON with all required keys
 
 If the input is a valid startup idea:
-- whyThisScore: exactly 3 sentences explaining why this idea received this score
-- improvement: 3 concise sentences explaining how to improve the idea
+- whyThisScore: exactly 3 sentences
+- improvement: exactly 3 bullet points worth of content
 - problem: 2-3 sentences
 - targetCustomer: 2-3 sentences
 - mvp: 2-4 sentences
-- validationPlan: a simple 14-day text plan, one line per day
+- validationPlan: exactly 14 lines, one line per day
+  - Korean example: "1일차: ..."
+  - English example: "Day 1: ..."
 
 Do not include markdown fences.
 Return JSON only.`;
@@ -156,7 +210,7 @@ ${idea}`;
       differentiationPotential: clamp(parsed.scoreBreakdown?.differentiationPotential, 0, 20),
     };
 
-    const calculatedScore =
+    const totalScore =
       breakdown.problemSeverity +
       breakdown.customerUrgency +
       breakdown.mvpSimplicity +
@@ -164,14 +218,14 @@ ${idea}`;
       breakdown.differentiationPotential;
 
     return NextResponse.json({
-      score: clamp(parsed.score ?? calculatedScore, 0, 100),
+      score: totalScore,
       whyThisScore: String(parsed.whyThisScore ?? ""),
       scoreBreakdown: breakdown,
-      improvement: String(parsed.improvement ?? ""),
+      improvement: normalizeImprovement(parsed.improvement),
       problem: String(parsed.problem ?? ""),
       targetCustomer: String(parsed.targetCustomer ?? ""),
       mvp: String(parsed.mvp ?? ""),
-      validationPlan: String(parsed.validationPlan ?? ""),
+      validationPlan: normalizeValidationPlan(parsed.validationPlan),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Request failed";
