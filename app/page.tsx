@@ -98,7 +98,9 @@ export default function Page() {
       <textarea
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
-        placeholder={"창업 아이디어를 한두 문장으로 적어보세요.\n예: 반려견 산책 대행 서비스, 동네 소상공인용 재고 관리 앱"}
+        placeholder={
+          "검증하고 싶은 창업 아이디어를 한두 문장으로, 구체적으로 적어보세요.\n예: 혼자 사는 직장인이 퇴근 후 반려견 산책을 맡길 수 있도록, 근처 검증된 산책 도우미를 연결해주는 서비스\n예: 동네 카페 사장이 재고 부족을 미리 파악할 수 있도록, 판매 흐름을 기반으로 발주 시점을 알려주는 재고 관리 서비스"
+        }
         style={{
           width: "100%",
           minHeight: 120,

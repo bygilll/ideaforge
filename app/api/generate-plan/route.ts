@@ -94,6 +94,42 @@ function normalizeValidationPlan(value: unknown): string {
   return lines.join("\n");
 }
 
+function isMeaninglessIdea(input: string) {
+  const trimmed = input.trim();
+  if (!trimmed) return true;
+
+  const normalized = trimmed.toLowerCase();
+
+  const meaninglessPatterns = [
+    "asdf",
+    "test",
+    "qwer",
+    "zxcv",
+    "1234",
+    "123123",
+    "ㅁㄴㅇㄹ",
+    "ㅇㅇ",
+    "아무말",
+    "ㄴㅇㄹ",
+    "sdf",
+  ];
+
+  if (meaninglessPatterns.includes(normalized)) return true;
+
+  const hasKorean = /[가-힣]/.test(trimmed);
+  const hasEnglish = /[a-zA-Z]/.test(trimmed);
+  const hasNumber = /[0-9]/.test(trimmed);
+
+  if (!hasKorean && !hasEnglish && !hasNumber) return true;
+
+  if (trimmed.length <= 3) return true;
+
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length === 1 && trimmed.length <= 5) return true;
+
+  return false;
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -126,10 +162,41 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (isMeaninglessIdea(idea)) {
+    return NextResponse.json({
+      asOfLabel,
+      score: 0,
+      asOfContext: `${asOfLabel}, 현재 입력값은 유효한 창업 아이디어로 보기 어렵습니다.\n시장 상황이나 수요를 판단할 수 있을 정도의 문제, 고객, 서비스 맥락이 부족합니다.`,
+      whyThisScore:
+        "입력값이 너무 짧거나 무의미해 창업 아이디어로 평가할 수 없습니다.\n현재 상태로는 문제, 고객, 가치 제안을 판단할 근거가 없어 0점 처리했습니다.\n해결하려는 문제와 대상 고객이 드러나도록 한두 문장으로 다시 입력해 주세요.",
+      scoreBreakdown: {
+        problemSeverity: 0,
+        customerUrgency: 0,
+        mvpSimplicity: 0,
+        monetizationPotential: 0,
+        differentiationPotential: 0,
+      },
+      risks:
+        "- 입력값이 모호해 실제 시장 수요를 판단할 수 없습니다.\n- 문제와 고객이 정의되지 않아 어떤 서비스인지 해석이 불가능합니다.\n- 이 상태로는 검증 계획을 세워도 의미 있는 인사이트를 얻기 어렵습니다.",
+      improvement:
+        "- 누가 어떤 상황에서 어떤 문제를 겪는지 먼저 적어보세요.\n- 서비스를 한 줄 소개가 아니라 문제 해결 문장으로 바꿔 적어보세요.\n- 대상 고객, 문제 상황, 제공 방식이 드러나도록 다시 입력해 주세요.",
+      problem:
+        "현재 입력값만으로는 사용자가 겪는 구체적인 문제를 확인할 수 없습니다. 평가 가능한 창업 아이디어는 최소한 해결하려는 불편이나 수요가 드러나야 합니다.",
+      targetCustomer:
+        "현재 입력값만으로는 특정 고객군을 정의할 수 없습니다. 누가 이 서비스를 필요로 하는지 드러나야 타겟 고객을 판단할 수 있습니다.",
+      mvp:
+        "문제와 고객이 정의되지 않은 상태에서는 MVP를 설계할 수 없습니다. 먼저 해결하려는 상황과 제공하려는 핵심 기능을 한두 문장으로 구체화해야 합니다.",
+      validationPlan:
+        "1일차: 해결하려는 문제를 한 문장으로 다시 정리하기\n2일차: 누가 이 문제를 겪는지 고객군 정하기\n3일차: 고객이 겪는 상황을 구체적인 장면으로 적기\n4일차: 기존에 쓰는 대안이 있는지 조사하기\n5일차: 이 서비스가 왜 필요한지 한 문장으로 정리하기\n6일차: 핵심 기능을 1개만 정하기\n7일차: 서비스 설명 문장을 다시 작성하기\n8일차: 주변 사람 3명에게 설명하고 이해되는지 확인하기\n9일차: 이해 안 되는 표현 제거하기\n10일차: 대상 고객이 실제로 필요로 할지 질문 정리하기\n11일차: 고객 인터뷰 질문 5개 만들기\n12일차: 비슷한 서비스 사례 3개 찾아보기\n13일차: 차별점이 있는지 정리하기\n14일차: 다시 한 번 구체적인 아이디어 문장으로 입력하기",
+    });
+  }
+
   const systemPrompt = `You are a strict startup validation expert.
 
 The required output language is ${outputLanguage}.
 You must write the entire response in ${outputLanguage} only.
+If the user's input is Korean, every field in the response must be written in Korean with no English sentences.
+If the user's input is English, every field in the response must be written in English with no Korean sentences.
 Do not mix languages.
 
 Return VALID JSON only with these exact keys:
@@ -150,18 +217,12 @@ Category meaning:
 - monetizationPotential: whether users or businesses are likely to pay
 - differentiationPotential: whether the idea has defensible uniqueness
 
-If the input is meaningless, random text, or too vague to evaluate as a startup idea:
-- keep all scoreBreakdown values very low
-- explain clearly why it is not a valid startup idea
-- still return valid JSON with all required keys
-
 If the input is a valid startup idea:
 - asOfContext: exactly 2 sentences
   - first sentence must start with "${asOfLabel}"
   - mention the current market context or user demand context in a realistic but non-hyped way
 - whyThisScore: exactly 3 sentences
   - be analytical, not flattering
-  - explain why this idea gets this score now
 - risks: exactly 3 bullet points worth of content
   - focus on why this idea may fail
   - be critical and concrete
