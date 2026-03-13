@@ -44,13 +44,13 @@ export default function Page() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data?.error || "Something went wrong");
+        setError(data?.error || "문제가 발생했습니다.");
         return;
       }
 
       setResult(data);
     } catch {
-      setError("Request failed");
+      setError("요청 처리 중 문제가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -68,11 +68,12 @@ export default function Page() {
       <div style={{ marginBottom: 24 }}>
         <h1
           style={{
-            fontSize: 28,
-            fontWeight: 700,
+            fontSize: 32,
+            fontWeight: 800,
             marginBottom: 10,
-            lineHeight: 1.35,
+            lineHeight: 1.3,
             whiteSpace: "pre-line",
+            letterSpacing: "-0.02em",
           }}
         >
           {"아이디어, 만들기 전에 검증해라\nValidate your startup idea before you build it"}
@@ -82,19 +83,19 @@ export default function Page() {
           style={{
             fontSize: 16,
             color: "#555",
-            lineHeight: 1.6,
+            lineHeight: 1.7,
             margin: 0,
             whiteSpace: "pre-line",
           }}
         >
-          {"AI가 당신의 아이디어를 14일 검증 플랜으로 바꿔줍니다\nTurn your startup idea into a 14-day validation plan"}
+          {"AI가 당신의 아이디어를 14일 검증 플랜으로 바꿔줍니다.\n아이디어를 막연한 낙관이 아니라 실행 가능한 검증 구조로 바꿔보세요."}
         </p>
       </div>
 
       <textarea
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
-        placeholder={"창업 아이디어를 한두 문장으로 적어보세요\nDescribe your startup idea in a few sentences..."}
+        placeholder={"창업 아이디어를 한두 문장으로 적어보세요.\n예: 반려견 산책 대행 서비스, 동네 소상공인용 재고 관리 앱"}
         style={{
           width: "100%",
           minHeight: 120,
@@ -105,6 +106,7 @@ export default function Page() {
           resize: "vertical",
           marginBottom: 16,
           whiteSpace: "pre-wrap",
+          lineHeight: 1.6,
         }}
       />
 
@@ -119,13 +121,13 @@ export default function Page() {
           border: "none",
           borderRadius: 8,
           fontSize: 16,
-          fontWeight: 600,
+          fontWeight: 700,
           cursor: "pointer",
           marginBottom: 24,
           opacity: loading || !idea.trim() ? 0.7 : 1,
         }}
       >
-        {loading ? "Generating..." : "Generate Plan"}
+        {loading ? "진단 생성 중..." : "검증 플랜 만들기"}
       </button>
 
       {error ? (
@@ -134,29 +136,65 @@ export default function Page() {
 
       {result ? (
         <div style={{ display: "grid", gap: 16 }}>
-          <p
+          <div
             style={{
-              fontSize: 14,
-              color: "#666",
-              margin: 0,
-              fontWeight: 600,
+              display: "grid",
+              gap: 6,
+              marginBottom: 4,
             }}
           >
-            Validation Result
-          </p>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#666",
+                margin: 0,
+                fontWeight: 700,
+              }}
+            >
+              검증 결과
+            </p>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#666",
+                lineHeight: 1.6,
+                margin: 0,
+              }}
+            >
+              이 결과는 문제 강도, 고객 절박성, MVP 실행 용이성, 수익화 가능성, 차별화 가능성을 기준으로 평가한 초기 진단입니다.
+            </p>
+          </div>
 
           <section
             style={{
               border: "1px solid #e5e5e5",
               borderRadius: 8,
-              padding: 16,
+              padding: 20,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              0. Idea Score
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              0. 아이디어 점수
             </h2>
-            <p style={{ fontSize: 36, fontWeight: 700, margin: 0 }}>
+            <p
+              style={{
+                fontSize: 40,
+                fontWeight: 800,
+                margin: 0,
+                letterSpacing: "-0.03em",
+              }}
+            >
               {result.score} / 100
+            </p>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#666",
+                lineHeight: 1.6,
+                marginTop: 10,
+                marginBottom: 0,
+              }}
+            >
+              점수는 좋고 나쁨의 감상이 아니라, 지금 아이디어가 시장에서 얼마나 설득력 있게 검증될 수 있는지를 기준으로 계산됩니다.
             </p>
           </section>
 
@@ -164,13 +202,13 @@ export default function Page() {
             style={{
               border: "1px solid #e5e5e5",
               borderRadius: 8,
-              padding: 16,
+              padding: 20,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              1. Why this score
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              1. 이 점수의 이유
             </h2>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, margin: 0 }}>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.whyThisScore}
             </p>
           </section>
@@ -179,28 +217,47 @@ export default function Page() {
             style={{
               border: "1px solid #e5e5e5",
               borderRadius: 8,
-              padding: 16,
+              padding: 20,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              2. Score Breakdown
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              2. 점수 세부 분석
             </h2>
 
-            <div style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gap: 12 }}>
               <div>
-                <strong>Problem Severity</strong>: {result.scoreBreakdown.problemSeverity} / 20
+                <strong>문제 강도</strong>: {result.scoreBreakdown.problemSeverity} / 20
+                <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
+                  사람들이 실제로 자주 겪고, 불편을 크게 느끼는 문제인지 평가합니다.
+                </div>
               </div>
+
               <div>
-                <strong>Customer Urgency</strong>: {result.scoreBreakdown.customerUrgency} / 20
+                <strong>고객 절박성</strong>: {result.scoreBreakdown.customerUrgency} / 20
+                <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
+                  고객이 지금 당장 해결책을 찾고 싶어 하는 문제인지 평가합니다.
+                </div>
               </div>
+
               <div>
-                <strong>MVP Simplicity</strong>: {result.scoreBreakdown.mvpSimplicity} / 20
+                <strong>MVP 실행 용이성</strong>: {result.scoreBreakdown.mvpSimplicity} / 20
+                <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
+                  적은 비용과 짧은 시간으로 빠르게 검증 가능한지 평가합니다.
+                </div>
               </div>
+
               <div>
-                <strong>Monetization Potential</strong>: {result.scoreBreakdown.monetizationPotential} / 20
+                <strong>수익화 가능성</strong>: {result.scoreBreakdown.monetizationPotential} / 20
+                <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
+                  고객이나 기업이 실제로 돈을 지불할 가능성이 있는지 평가합니다.
+                </div>
               </div>
+
               <div>
-                <strong>Differentiation Potential</strong>: {result.scoreBreakdown.differentiationPotential} / 20
+                <strong>차별화 가능성</strong>: {result.scoreBreakdown.differentiationPotential} / 20
+                <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
+                  기존 대안과 비교해 분명한 차이와 방어력이 있는지 평가합니다.
+                </div>
               </div>
             </div>
           </section>
@@ -209,28 +266,36 @@ export default function Page() {
             style={{
               border: "1px solid #e5e5e5",
               borderRadius: 8,
-              padding: 16,
+              padding: 20,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              3. How to improve
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              3. 개선 방향
             </h2>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, margin: 0 }}>
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.8,
+                margin: 0,
+                fontFamily: "inherit",
+                fontSize: 16,
+              }}
+            >
               {result.improvement}
-            </p>
+            </pre>
           </section>
 
           <section
             style={{
               border: "1px solid #e5e5e5",
               borderRadius: 8,
-              padding: 16,
+              padding: 20,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              4. Problem
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              4. 문제 정의
             </h2>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, margin: 0 }}>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.problem}
             </p>
           </section>
@@ -239,13 +304,13 @@ export default function Page() {
             style={{
               border: "1px solid #e5e5e5",
               borderRadius: 8,
-              padding: 16,
+              padding: 20,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              5. Target Customer
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              5. 타겟 고객
             </h2>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, margin: 0 }}>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.targetCustomer}
             </p>
           </section>
@@ -254,13 +319,13 @@ export default function Page() {
             style={{
               border: "1px solid #e5e5e5",
               borderRadius: 8,
-              padding: 16,
+              padding: 20,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
               6. MVP
             </h2>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.7, margin: 0 }}>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.mvp}
             </p>
           </section>
@@ -269,16 +334,16 @@ export default function Page() {
             style={{
               border: "1px solid #e5e5e5",
               borderRadius: 8,
-              padding: 16,
+              padding: 20,
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              7. 14-Day Validation Plan
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              7. 14일 검증 계획
             </h2>
             <pre
               style={{
                 whiteSpace: "pre-wrap",
-                lineHeight: 1.8,
+                lineHeight: 1.9,
                 margin: 0,
                 fontFamily: "inherit",
                 fontSize: 16,
