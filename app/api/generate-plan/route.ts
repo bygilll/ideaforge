@@ -2,6 +2,31 @@ import { NextRequest, NextResponse } from "next/server";
 
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
+type ScoreBreakdown = {
+  problemSeverity?: number;
+  customerUrgency?: number;
+  mvpSimplicity?: number;
+  monetizationPotential?: number;
+  differentiationPotential?: number;
+};
+
+type ParsedResponse = {
+  score?: number;
+  whyThisScore?: string;
+  scoreBreakdown?: ScoreBreakdown;
+  improvement?: string;
+  problem?: string;
+  targetCustomer?: string;
+  mvp?: string;
+  validationPlan?: string;
+};
+
+function clamp(value: unknown, min: number, max: number) {
+  const num = typeof value === "number" ? value : Number(value ?? 0);
+  if (Number.isNaN(num)) return min;
+  return Math.max(min, Math.min(max, Math.round(num)));
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -25,6 +50,7 @@ export async function POST(request: NextRequest) {
 
   const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
   const outputLanguage = /[가-힣]/.test(idea) ? "Korean" : "English";
+
   if (!idea) {
     return NextResponse.json(
       { error: "Please provide an idea" },
@@ -35,34 +61,43 @@ export async function POST(request: NextRequest) {
   const systemPrompt = `You are a strict startup validation expert.
 
 The required output language is ${outputLanguage}.
-You must respond ONLY in ${outputLanguage}.
+You must write the entire response in ${outputLanguage} only.
+Do not mix languages.
 
 You must return VALID JSON only with these exact keys:
-"score", "problem", "targetCustomer", "mvp", "validationPlan".
+"score", "whyThisScore", "scoreBreakdown", "improvement", "problem", "targetCustomer", "mvp", "validationPlan".
 
-Scoring rule:
-- 0 = terrible idea
-- 10 = excellent idea ready to build
+The "scoreBreakdown" object must have these exact keys:
+"problemSeverity", "customerUrgency", "mvpSimplicity", "monetizationPotential", "differentiationPotential".
 
-Be critical and realistic.
+Scoring rubric:
+- problemSeverity: 0 to 20
+- customerUrgency: 0 to 20
+- mvpSimplicity: 0 to 20
+- monetizationPotential: 0 to 20
+- differentiationPotential: 0 to 20
+
+Final score:
+- score = sum of the five category scores
+- return an integer from 0 to 100 only
+
+You must be critical and realistic.
 
 If the input is meaningless, random text, or too vague to evaluate as a startup idea:
-- set "score" to 1
-- set "problem" to a short explanation that this is not a valid startup idea
-- set "targetCustomer" to "N/A"
-- set "mvp" to "N/A"
-- set "validationPlan" to "Please enter a real product or service idea."
+- set a very low score
+- explain clearly that this is not a valid startup idea
+- still return valid JSON with all required keys
 
 If the input is a valid startup idea:
-- score: a number from 0 to 10
+- whyThisScore: exactly 3 sentences explaining why this idea received this score
+- improvement: 3 concise sentences explaining how to improve the idea
 - problem: 2-3 sentences
 - targetCustomer: 2-3 sentences
 - mvp: 2-4 sentences
-- validationPlan: either:
-  1) a simple 14-day text plan, or
-  2) a JSON object like {"Day 1":"...", "Day 2":"..."}.
+- validationPlan: a simple 14-day text plan, one line per day
 
-Do not include markdown fences. Return JSON only.`;
+Do not include markdown fences.
+Return JSON only.`;
 
   const userPrompt = `Startup idea:
 
@@ -113,15 +148,30 @@ ${idea}`;
       );
     }
 
+    const breakdown = {
+      problemSeverity: clamp(parsed.scoreBreakdown?.problemSeverity, 0, 20),
+      customerUrgency: clamp(parsed.scoreBreakdown?.customerUrgency, 0, 20),
+      mvpSimplicity: clamp(parsed.scoreBreakdown?.mvpSimplicity, 0, 20),
+      monetizationPotential: clamp(parsed.scoreBreakdown?.monetizationPotential, 0, 20),
+      differentiationPotential: clamp(parsed.scoreBreakdown?.differentiationPotential, 0, 20),
+    };
+
+    const calculatedScore =
+      breakdown.problemSeverity +
+      breakdown.customerUrgency +
+      breakdown.mvpSimplicity +
+      breakdown.monetizationPotential +
+      breakdown.differentiationPotential;
+
     return NextResponse.json({
-      score: Number(parsed.score ?? 0),
+      score: clamp(parsed.score ?? calculatedScore, 0, 100),
+      whyThisScore: String(parsed.whyThisScore ?? ""),
+      scoreBreakdown: breakdown,
+      improvement: String(parsed.improvement ?? ""),
       problem: String(parsed.problem ?? ""),
       targetCustomer: String(parsed.targetCustomer ?? ""),
       mvp: String(parsed.mvp ?? ""),
-      validationPlan:
-        typeof parsed.validationPlan === "string"
-          ? parsed.validationPlan
-          : JSON.stringify(parsed.validationPlan ?? "", null, 2),
+      validationPlan: String(parsed.validationPlan ?? ""),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Request failed";
@@ -132,25 +182,13 @@ ${idea}`;
   }
 }
 
-function parseJsonContent(content: string): {
-  score?: number;
-  problem?: string;
-  targetCustomer?: string;
-  mvp?: string;
-  validationPlan?: string | Record<string, string>;
-} | null {
+function parseJsonContent(content: string): ParsedResponse | null {
   const cleaned = content
     .replace(/^```(?:json)?\s*/i, "")
     .replace(/\s*```$/i, "");
 
   try {
-    return JSON.parse(cleaned) as {
-      score?: number;
-      problem?: string;
-      targetCustomer?: string;
-      mvp?: string;
-      validationPlan?: string | Record<string, string>;
-    };
+    return JSON.parse(cleaned) as ParsedResponse;
   } catch {
     return null;
   }

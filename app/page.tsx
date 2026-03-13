@@ -1,237 +1,195 @@
-"use client";
+import { NextRequest, NextResponse } from "next/server";
 
-import { useState } from "react";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
-type PlanResponse = {
-  score: number;
-  problem: string;
-  targetCustomer: string;
-  mvp: string;
-  validationPlan: string;
+type ScoreBreakdown = {
+  problemSeverity?: number;
+  customerUrgency?: number;
+  mvpSimplicity?: number;
+  monetizationPotential?: number;
+  differentiationPotential?: number;
 };
 
-function formatValidationPlan(value: string) {
-  try {
-    const parsed = JSON.parse(value);
+type ParsedResponse = {
+  score?: number;
+  whyThisScore?: string;
+  scoreBreakdown?: ScoreBreakdown;
+  improvement?: string;
+  problem?: string;
+  targetCustomer?: string;
+  mvp?: string;
+  validationPlan?: string;
+};
 
-    if (parsed && typeof parsed === "object") {
-      return Object.entries(parsed)
-        .map(([day, text]) => `${day}: ${String(text)}`)
-        .join("\n");
+function clamp(value: unknown, min: number, max: number) {
+  const num = typeof value === "number" ? value : Number(value ?? 0);
+  if (Number.isNaN(num)) return min;
+  return Math.max(min, Math.min(max, Math.round(num)));
+}
+
+export async function POST(request: NextRequest) {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "OPENAI_API_KEY is not set on the server." },
+      { status: 500 }
+    );
+  }
+
+  let body: { idea?: string };
+
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid JSON body" },
+      { status: 400 }
+    );
+  }
+
+  const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
+  const outputLanguage = /[가-힣]/.test(idea) ? "Korean" : "English";
+
+  if (!idea) {
+    return NextResponse.json(
+      { error: "Please provide an idea" },
+      { status: 400 }
+    );
+  }
+
+  const systemPrompt = `You are a strict startup validation expert.
+
+The required output language is ${outputLanguage}.
+You must write the entire response in ${outputLanguage} only.
+Do not mix languages.
+
+You must return VALID JSON only with these exact keys:
+"score", "whyThisScore", "scoreBreakdown", "improvement", "problem", "targetCustomer", "mvp", "validationPlan".
+
+The "scoreBreakdown" object must have these exact keys:
+"problemSeverity", "customerUrgency", "mvpSimplicity", "monetizationPotential", "differentiationPotential".
+
+Scoring rubric:
+- problemSeverity: 0 to 20
+- customerUrgency: 0 to 20
+- mvpSimplicity: 0 to 20
+- monetizationPotential: 0 to 20
+- differentiationPotential: 0 to 20
+
+Final score:
+- score = sum of the five category scores
+- return an integer from 0 to 100 only
+
+You must be critical and realistic.
+
+If the input is meaningless, random text, or too vague to evaluate as a startup idea:
+- set a very low score
+- explain clearly that this is not a valid startup idea
+- still return valid JSON with all required keys
+
+If the input is a valid startup idea:
+- whyThisScore: exactly 3 sentences explaining why this idea received this score
+- improvement: 3 concise sentences explaining how to improve the idea
+- problem: 2-3 sentences
+- targetCustomer: 2-3 sentences
+- mvp: 2-4 sentences
+- validationPlan: a simple 14-day text plan, one line per day
+
+Do not include markdown fences.
+Return JSON only.`;
+
+  const userPrompt = `Startup idea:
+
+${idea}`;
+
+  try {
+    const res = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        temperature: 0,
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      return NextResponse.json(
+        { error: `OpenAI API error: ${res.status}. ${err}` },
+        { status: 502 }
+      );
     }
 
-    return value;
-  } catch {
-    return value;
+    const data = await res.json();
+    const content = data?.choices?.[0]?.message?.content?.trim();
+
+    if (!content) {
+      return NextResponse.json(
+        { error: "No response from OpenAI" },
+        { status: 502 }
+      );
+    }
+
+    const parsed = parseJsonContent(content);
+
+    if (!parsed) {
+      return NextResponse.json(
+        { error: "Could not parse OpenAI response" },
+        { status: 502 }
+      );
+    }
+
+    const breakdown = {
+      problemSeverity: clamp(parsed.scoreBreakdown?.problemSeverity, 0, 20),
+      customerUrgency: clamp(parsed.scoreBreakdown?.customerUrgency, 0, 20),
+      mvpSimplicity: clamp(parsed.scoreBreakdown?.mvpSimplicity, 0, 20),
+      monetizationPotential: clamp(parsed.scoreBreakdown?.monetizationPotential, 0, 20),
+      differentiationPotential: clamp(parsed.scoreBreakdown?.differentiationPotential, 0, 20),
+    };
+
+    const calculatedScore =
+      breakdown.problemSeverity +
+      breakdown.customerUrgency +
+      breakdown.mvpSimplicity +
+      breakdown.monetizationPotential +
+      breakdown.differentiationPotential;
+
+    return NextResponse.json({
+      score: clamp(parsed.score ?? calculatedScore, 0, 100),
+      whyThisScore: String(parsed.whyThisScore ?? ""),
+      scoreBreakdown: breakdown,
+      improvement: String(parsed.improvement ?? ""),
+      problem: String(parsed.problem ?? ""),
+      targetCustomer: String(parsed.targetCustomer ?? ""),
+      mvp: String(parsed.mvp ?? ""),
+      validationPlan: String(parsed.validationPlan ?? ""),
+    });
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "Request failed";
+    return NextResponse.json(
+      { error: message },
+      { status: 502 }
+    );
   }
 }
 
-export default function Page() {
-  const [idea, setIdea] = useState("");
-  const [result, setResult] = useState<PlanResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+function parseJsonContent(content: string): ParsedResponse | null {
+  const cleaned = content
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
 
-  async function handleGenerate() {
-    setLoading(true);
-    setError("");
-    setResult(null);
-
-    try {
-      const res = await fetch("/api/generate-plan", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ idea }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data?.error || "Something went wrong");
-        return;
-      }
-
-      setResult(data);
-    } catch {
-      setError("Request failed");
-    } finally {
-      setLoading(false);
-    }
+  try {
+    return JSON.parse(cleaned) as ParsedResponse;
+  } catch {
+    return null;
   }
-
-  return (
-    <main
-      style={{
-        maxWidth: 860,
-        margin: "0 auto",
-        padding: "40px 24px 80px",
-        fontFamily: "Arial, sans-serif",
-      }}
-    >
-     <div style={{ marginBottom: 24 }}>
-  <h1
-    style={{
-      fontSize: 28,
-      fontWeight: 700,
-      marginBottom: 10,
-      lineHeight: 1.35,
-      whiteSpace: "pre-line",
-    }}
-  >
-    {"아이디어, 만들기 전에 검증해라\nValidate your startup idea before you build it"}
-  </h1>
-
-  <p
-    style={{
-      fontSize: 16,
-      color: "#555",
-      lineHeight: 1.6,
-      margin: 0,
-      whiteSpace: "pre-line",
-    }}
-  >
-    {"AI가 당신의 아이디어를 14일 검증 플랜으로 바꿔줍니다\nTurn your startup idea into a 14-day validation plan"}
-  </p>
-</div>
-
-      <textarea
-        value={idea}
-        onChange={(e) => setIdea(e.target.value)}
-        placeholder={"창업 아이디어를 한두 문장으로 적어보세요\nDescribe your startup idea in a few sentences..."}
-        style={{
-          width: "100%",
-          minHeight: 120,
-          padding: 16,
-          fontSize: 16,
-          border: "1px solid #ddd",
-          borderRadius: 8,
-          resize: "vertical",
-          marginBottom: 16,
-        }}
-      />
-
-      <button
-        onClick={handleGenerate}
-        disabled={loading || !idea.trim()}
-        style={{
-          width: "100%",
-          padding: "14px 16px",
-          backgroundColor: "#000",
-          color: "#fff",
-          border: "none",
-          borderRadius: 8,
-          fontSize: 16,
-          fontWeight: 600,
-          cursor: "pointer",
-          marginBottom: 24,
-          opacity: loading || !idea.trim() ? 0.7 : 1,
-        }}
-      >
-        {loading ? "Generating..." : "Generate Plan"}
-      </button>
-
-      {error ? (
-        <p style={{ color: "red", marginBottom: 24 }}>{error}</p>
-      ) : null}
-
-      {result ? (
-        <div style={{ display: "grid", gap: 16 }}>
-          <p
-  style={{
-    fontSize: 14,
-    color: "#666",
-    margin: 0,
-    fontWeight: 600,
-  }}
->
-  Validation Result
-</p>
-
-          <section
-  style={{
-    border: "1px solid #e5e5e5",
-    borderRadius: 8,
-    padding: 16,
-  }}
->
-  <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-    0. Idea Score
-  </h2>
-  <p style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>
-    {result.score} / 10
-  </p>
-</section>
-          <section
-            style={{
-              border: "1px solid #e5e5e5",
-              borderRadius: 8,
-              padding: 16,
-            }}
-          >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              1. Problem
-            </h2>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>
-              {result.problem}
-            </p>
-          </section>
-
-          <section
-            style={{
-              border: "1px solid #e5e5e5",
-              borderRadius: 8,
-              padding: 16,
-            }}
-          >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              2. Target Customer
-            </h2>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>
-              {result.targetCustomer}
-            </p>
-          </section>
-
-          <section
-            style={{
-              border: "1px solid #e5e5e5",
-              borderRadius: 8,
-              padding: 16,
-            }}
-          >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              3. MVP
-            </h2>
-            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>
-              {result.mvp}
-            </p>
-          </section>
-
-          <section
-            style={{
-              border: "1px solid #e5e5e5",
-              borderRadius: 8,
-              padding: 16,
-            }}
-          >
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
-              4. 14-Day Validation Plan
-            </h2>
-            <pre
-              style={{
-                whiteSpace: "pre-wrap",
-                lineHeight: 1.8,
-                margin: 0,
-                fontFamily: "inherit",
-                fontSize: 16,
-              }}
-            >
-              {formatValidationPlan(result.validationPlan)}
-            </pre>
-          </section>
-        </div>
-      ) : null}
-    </main>
-  );
 }
