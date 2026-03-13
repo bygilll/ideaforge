@@ -271,7 +271,7 @@ ${idea}`;
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: \`Bearer \${apiKey}\`,
+        Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -287,7 +287,7 @@ ${idea}`;
     if (!res.ok) {
       const err = await res.text();
       return NextResponse.json(
-        { error: \`OpenAI API error: \${res.status}. \${err}\` },
+        { error: `OpenAI API error: ${res.status}. ${err}` },
         { status: 502 }
       );
     }
