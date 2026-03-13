@@ -77,7 +77,7 @@ export default function Page() {
           lineHeight: 1.3,
         }}
       >
-        아이디어, 만들기 전에 검증하자
+        아이디어, 만들기 전에 검증해라
       </h1>
 
       <textarea
