@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 
+type OutputLanguage = "ko" | "en";
+
 type ScoreBreakdown = {
   problemSeverity: number;
   customerUrgency: number;
@@ -11,6 +13,7 @@ type ScoreBreakdown = {
 };
 
 type PlanResponse = {
+  language: OutputLanguage;
   asOfLabel: string;
   score: number;
   asOfContext: string;
@@ -23,6 +26,115 @@ type PlanResponse = {
   mvp: string;
   validationPlan: string;
 };
+
+const LABELS = {
+  ko: {
+    pageTitle: "아이디어, 만들기 전에 검증해라",
+    pageSubtitle: "Validate your startup idea before you build it",
+    intro:
+      "AI가 당신의 아이디어를 14일 검증 플랜으로 바꿔줍니다.\n아이디어를 막연한 낙관이 아니라 실행 가능한 검증 구조로 바꿔보세요.",
+    placeholder:
+      "검증하고 싶은 창업 아이디어를 한두 문장으로, 구체적으로 적어보세요.\n예: 혼자 사는 직장인이 퇴근 후 반려견 산책을 맡길 수 있도록, 근처 검증된 산책 도우미를 연결해주는 서비스\n예: 동네 카페 사장이 재고 부족을 미리 파악할 수 있도록, 판매 흐름을 기반으로 발주 시점을 알려주는 재고 관리 서비스",
+    createButton: "검증 플랜 만들기",
+    loadingButton: "진단 생성 중...",
+    shareLabel: "AI 창업 검증 도구",
+    summaryLabel: "한 줄 진단",
+    riskLabel: "핵심 리스크",
+    saveImage: "이미지 저장",
+    copyLink: "링크 복사",
+    copySuccess: "링크가 복사되었습니다.",
+    copyFail: "링크 복사에 실패했습니다.",
+    saveSuccess: "이미지가 저장되었습니다.",
+    saveFail: "이미지 저장에 실패했습니다.",
+    resultTitle: "검증 결과",
+    resultIntro:
+      "이 결과는 문제 강도, 필요도, MVP 실행 용이성, 수익화 가능성, 차별화 가능성을 기준으로 평가한 초기 진단입니다.",
+    score: "0. 아이디어 점수",
+    scoreDesc:
+      "점수는 좋고 나쁨의 감상이 아니라, 지금 아이디어가 시장에서 얼마나 설득력 있게 검증될 수 있는지를 기준으로 계산됩니다.",
+    asOf: "1. 현재 시점 기준 진단",
+    asOfPrefix: "기준 시점",
+    why: "2. 이 점수의 이유",
+    breakdown: "3. 점수 세부 분석",
+    risks: "4. 핵심 리스크",
+    improvement: "5. 개선 방향",
+    problem: "6. 문제 정의",
+    target: "7. 타겟 고객",
+    mvp: "8. MVP",
+    plan: "9. 14일 검증 계획",
+    problemSeverity: "문제 강도",
+    customerUrgency: "필요도",
+    mvpSimplicity: "MVP 실행 용이성",
+    monetizationPotential: "수익화 가능성",
+    differentiationPotential: "차별화 가능성",
+    problemSeverityDesc:
+      "사람들이 실제로 자주 겪고, 불편을 크게 느끼는 문제인지 평가합니다.",
+    customerUrgencyDesc:
+      "고객이 이 서비스를 실제로 원하고 필요하다고 느낄 가능성을 평가합니다.",
+    mvpSimplicityDesc:
+      "적은 비용과 짧은 시간으로 빠르게 검증 가능한지 평가합니다.",
+    monetizationPotentialDesc:
+      "고객이나 기업이 실제로 돈을 지불할 가능성이 있는지 평가합니다.",
+    differentiationPotentialDesc:
+      "기존 대안과 비교해 분명한 차이와 방어력이 있는지 평가합니다.",
+    emptyError: "아이디어를 입력해 주세요.",
+  },
+  en: {
+    pageTitle: "Validate your startup idea before you build it",
+    pageSubtitle: "Get a 14-day validation plan before you start building",
+    intro:
+      "IdeaForge AI turns your startup idea into a 14-day validation plan.\nMove from vague optimism to something you can actually test.",
+    placeholder:
+      "Describe your startup idea in one or two specific sentences.\nExample: A service that connects busy pet owners with verified local dog walkers for evening walks\nExample: A tool that helps neighborhood cafe owners predict reorder timing based on daily sales flow",
+    createButton: "Generate Validation Plan",
+    loadingButton: "Generating...",
+    shareLabel: "AI startup validation tool",
+    summaryLabel: "One-line diagnosis",
+    riskLabel: "Key risk",
+    saveImage: "Save image",
+    copyLink: "Copy link",
+    copySuccess: "Link copied.",
+    copyFail: "Failed to copy link.",
+    saveSuccess: "Image saved.",
+    saveFail: "Failed to save image.",
+    resultTitle: "Validation Result",
+    resultIntro:
+      "This is an early-stage evaluation based on problem intensity, customer need, MVP ease, monetization potential, and differentiation.",
+    score: "0. Idea Score",
+    scoreDesc:
+      "This score is not a compliment or insult. It estimates how convincingly this idea can be validated in the market right now.",
+    asOf: "1. Current Market View",
+    asOfPrefix: "Reference date",
+    why: "2. Why this score",
+    breakdown: "3. Score Breakdown",
+    risks: "4. Key Risks",
+    improvement: "5. Improvement Direction",
+    problem: "6. Problem Definition",
+    target: "7. Target Customer",
+    mvp: "8. MVP",
+    plan: "9. 14-Day Validation Plan",
+    problemSeverity: "Problem Severity",
+    customerUrgency: "Customer Need",
+    mvpSimplicity: "MVP Ease",
+    monetizationPotential: "Monetization Potential",
+    differentiationPotential: "Differentiation Potential",
+    problemSeverityDesc:
+      "Evaluates whether the problem is frequent and meaningfully painful.",
+    customerUrgencyDesc:
+      "Evaluates how strongly users are likely to want and need this service.",
+    mvpSimplicityDesc:
+      "Evaluates whether the idea can be tested quickly with limited cost and effort.",
+    monetizationPotentialDesc:
+      "Evaluates whether customers or businesses are likely to pay for it.",
+    differentiationPotentialDesc:
+      "Evaluates whether the idea has a meaningful difference versus existing alternatives.",
+    emptyError: "Please enter an idea.",
+  },
+} as const;
+
+function detectInputLanguage(text: string): OutputLanguage {
+  return /[가-힣]/.test(text) ? "ko" : "en";
+}
 
 function firstSentence(text: string) {
   const normalized = text.replace(/\n/g, " ").trim();
@@ -52,6 +164,9 @@ export default function Page() {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const hasAutoRunRef = useRef(false);
 
+  const activeLanguage: OutputLanguage = result?.language ?? detectInputLanguage(idea || "ko");
+  const ui = LABELS[activeLanguage];
+
   const cardSummary = useMemo(() => {
     if (!result) return null;
 
@@ -65,9 +180,11 @@ export default function Page() {
 
   async function generatePlan(overrideIdea?: string) {
     const finalIdea = (overrideIdea ?? idea).trim();
+    const inputLanguage = detectInputLanguage(finalIdea);
+    const inputUi = LABELS[inputLanguage];
 
     if (!finalIdea) {
-      setError("아이디어를 입력해 주세요.");
+      setError(inputUi.emptyError);
       return;
     }
 
@@ -89,7 +206,7 @@ export default function Page() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data?.error || "문제가 발생했습니다.");
+        setError(data?.error || inputUi.emptyError);
         return;
       }
 
@@ -102,7 +219,7 @@ export default function Page() {
         window.history.replaceState({}, "", url.toString());
       }
     } catch {
-      setError("요청 처리 중 문제가 발생했습니다.");
+      setError(inputLanguage === "en" ? "Something went wrong." : "요청 처리 중 문제가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -116,10 +233,10 @@ export default function Page() {
       url.searchParams.set("idea", idea.trim());
 
       await navigator.clipboard.writeText(url.toString());
-      setCopyMessage("링크가 복사되었습니다.");
+      setCopyMessage(ui.copySuccess);
       setTimeout(() => setCopyMessage(""), 2000);
     } catch {
-      setCopyMessage("링크 복사에 실패했습니다.");
+      setCopyMessage(ui.copyFail);
       setTimeout(() => setCopyMessage(""), 2000);
     }
   }
@@ -139,10 +256,10 @@ export default function Page() {
       link.href = dataUrl;
       link.click();
 
-      setDownloadMessage("이미지가 저장되었습니다.");
+      setDownloadMessage(ui.saveSuccess);
       setTimeout(() => setDownloadMessage(""), 2000);
     } catch {
-      setDownloadMessage("이미지 저장에 실패했습니다.");
+      setDownloadMessage(ui.saveFail);
       setTimeout(() => setDownloadMessage(""), 2000);
     }
   }
@@ -181,7 +298,7 @@ export default function Page() {
             letterSpacing: "-0.02em",
           }}
         >
-          {"아이디어, 만들기 전에 검증해라\nValidate your startup idea before you build it"}
+          {`${ui.pageTitle}\n${ui.pageSubtitle}`}
         </h1>
 
         <p
@@ -193,16 +310,14 @@ export default function Page() {
             whiteSpace: "pre-line",
           }}
         >
-          {"AI가 당신의 아이디어를 14일 검증 플랜으로 바꿔줍니다.\n아이디어를 막연한 낙관이 아니라 실행 가능한 검증 구조로 바꿔보세요."}
+          {ui.intro}
         </p>
       </div>
 
       <textarea
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
-        placeholder={
-          "검증하고 싶은 창업 아이디어를 한두 문장으로, 구체적으로 적어보세요.\n예: 혼자 사는 직장인이 퇴근 후 반려견 산책을 맡길 수 있도록, 근처 검증된 산책 도우미를 연결해주는 서비스\n예: 동네 카페 사장이 재고 부족을 미리 파악할 수 있도록, 판매 흐름을 기반으로 발주 시점을 알려주는 재고 관리 서비스"
-        }
+        placeholder={ui.placeholder}
         style={{
           width: "100%",
           minHeight: 120,
@@ -234,7 +349,7 @@ export default function Page() {
           opacity: loading || !idea.trim() ? 0.7 : 1,
         }}
       >
-        {loading ? "진단 생성 중..." : "검증 플랜 만들기"}
+        {loading ? ui.loadingButton : ui.createButton}
       </button>
 
       {error ? (
@@ -286,7 +401,7 @@ export default function Page() {
                       marginTop: 4,
                     }}
                   >
-                    AI 창업 검증 도구
+                    {ui.shareLabel}
                   </div>
                 </div>
 
@@ -380,7 +495,7 @@ export default function Page() {
                         letterSpacing: "0.04em",
                       }}
                     >
-                      한 줄 진단
+                      {ui.summaryLabel.toUpperCase()}
                     </div>
                     <div
                       style={{
@@ -409,7 +524,7 @@ export default function Page() {
                         letterSpacing: "0.04em",
                       }}
                     >
-                      핵심 리스크
+                      {ui.riskLabel.toUpperCase()}
                     </div>
                     <div
                       style={{
@@ -445,7 +560,7 @@ export default function Page() {
                   cursor: "pointer",
                 }}
               >
-                이미지 저장
+                {ui.saveImage}
               </button>
 
               <button
@@ -461,7 +576,7 @@ export default function Page() {
                   cursor: "pointer",
                 }}
               >
-                링크 복사
+                {ui.copyLink}
               </button>
 
               {downloadMessage ? (
@@ -505,7 +620,7 @@ export default function Page() {
                 fontWeight: 700,
               }}
             >
-              검증 결과
+              {ui.resultTitle}
             </p>
             <p
               style={{
@@ -515,7 +630,7 @@ export default function Page() {
                 margin: 0,
               }}
             >
-              이 결과는 문제 강도, 필요도, MVP 실행 용이성, 수익화 가능성, 차별화 가능성을 기준으로 평가한 초기 진단입니다.
+              {ui.resultIntro}
             </p>
           </div>
 
@@ -527,7 +642,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              0. 아이디어 점수
+              {ui.score}
             </h2>
             <p
               style={{
@@ -548,7 +663,7 @@ export default function Page() {
                 marginBottom: 0,
               }}
             >
-              점수는 좋고 나쁨의 감상이 아니라, 지금 아이디어가 시장에서 얼마나 설득력 있게 검증될 수 있는지를 기준으로 계산됩니다.
+              {ui.scoreDesc}
             </p>
           </section>
 
@@ -560,7 +675,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              1. 현재 시점 기준 진단
+              {ui.asOf}
             </h2>
             <p
               style={{
@@ -572,7 +687,7 @@ export default function Page() {
                 fontWeight: 700,
               }}
             >
-              기준 시점: {result.asOfLabel}
+              {ui.asOfPrefix}: {result.asOfLabel}
             </p>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.asOfContext}
@@ -587,7 +702,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              2. 이 점수의 이유
+              {ui.why}
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.whyThisScore}
@@ -602,42 +717,42 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              3. 점수 세부 분석
+              {ui.breakdown}
             </h2>
 
             <div style={{ display: "grid", gap: 12 }}>
               <div>
-                <strong>문제 강도</strong>: {result.scoreBreakdown.problemSeverity} / 20
+                <strong>{ui.problemSeverity}</strong>: {result.scoreBreakdown.problemSeverity} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  사람들이 실제로 자주 겪고, 불편을 크게 느끼는 문제인지 평가합니다.
+                  {ui.problemSeverityDesc}
                 </div>
               </div>
 
               <div>
-                <strong>필요도</strong>: {result.scoreBreakdown.customerUrgency} / 20
+                <strong>{ui.customerUrgency}</strong>: {result.scoreBreakdown.customerUrgency} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  고객이 이 서비스를 실제로 원하고 필요하다고 느낄 가능성을 평가합니다.
+                  {ui.customerUrgencyDesc}
                 </div>
               </div>
 
               <div>
-                <strong>MVP 실행 용이성</strong>: {result.scoreBreakdown.mvpSimplicity} / 20
+                <strong>{ui.mvpSimplicity}</strong>: {result.scoreBreakdown.mvpSimplicity} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  적은 비용과 짧은 시간으로 빠르게 검증 가능한지 평가합니다.
+                  {ui.mvpSimplicityDesc}
                 </div>
               </div>
 
               <div>
-                <strong>수익화 가능성</strong>: {result.scoreBreakdown.monetizationPotential} / 20
+                <strong>{ui.monetizationPotential}</strong>: {result.scoreBreakdown.monetizationPotential} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  고객이나 기업이 실제로 돈을 지불할 가능성이 있는지 평가합니다.
+                  {ui.monetizationPotentialDesc}
                 </div>
               </div>
 
               <div>
-                <strong>차별화 가능성</strong>: {result.scoreBreakdown.differentiationPotential} / 20
+                <strong>{ui.differentiationPotential}</strong>: {result.scoreBreakdown.differentiationPotential} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  기존 대안과 비교해 분명한 차이와 방어력이 있는지 평가합니다.
+                  {ui.differentiationPotentialDesc}
                 </div>
               </div>
             </div>
@@ -651,7 +766,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              4. 핵심 리스크
+              {ui.risks}
             </h2>
             <pre
               style={{
@@ -674,7 +789,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              5. 개선 방향
+              {ui.improvement}
             </h2>
             <pre
               style={{
@@ -697,7 +812,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              6. 문제 정의
+              {ui.problem}
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.problem}
@@ -712,7 +827,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              7. 타겟 고객
+              {ui.target}
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.targetCustomer}
@@ -727,7 +842,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              8. MVP
+              {ui.mvp}
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.mvp}
@@ -742,7 +857,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              9. 14일 검증 계획
+              {ui.plan}
             </h2>
             <pre
               style={{

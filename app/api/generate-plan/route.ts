@@ -22,26 +22,47 @@ type ParsedResponse = {
   validationPlan?: string;
 };
 
+type OutputLanguage = "ko" | "en";
+
+function detectLanguage(text: string): OutputLanguage {
+  return /[가-힣]/.test(text) ? "ko" : "en";
+}
+
 function clamp(value: unknown, min: number, max: number) {
   const num = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(num)) return min;
   return Math.max(min, Math.min(max, Math.round(num)));
 }
 
-function getAsOfLabel() {
-  const parts = new Intl.DateTimeFormat("ko-KR", {
+function getAsOfLabel(language: OutputLanguage) {
+  const date = new Date();
+
+  if (language === "ko") {
+    const parts = new Intl.DateTimeFormat("ko-KR", {
+      timeZone: "Asia/Seoul",
+      year: "2-digit",
+      month: "numeric",
+    }).formatToParts(date);
+
+    const year = parts.find((part) => part.type === "year")?.value ?? "";
+    const month = parts.find((part) => part.type === "month")?.value ?? "";
+
+    return `${year}년 ${month}월 현재`;
+  }
+
+  const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "Asia/Seoul",
-    year: "2-digit",
-    month: "numeric",
-  }).formatToParts(new Date());
+    year: "numeric",
+    month: "long",
+  }).formatToParts(date);
 
   const year = parts.find((part) => part.type === "year")?.value ?? "";
   const month = parts.find((part) => part.type === "month")?.value ?? "";
 
-  return `${year}년 ${month}월 현재`;
+  return `As of ${month} ${year}`;
 }
 
-function normalizeBulletList(value: unknown): string {
+function normalizeBulletList(value: unknown) {
   if (Array.isArray(value)) {
     return value
       .map((item) => `- ${String(item).replace(/^-+\s*/, "").trim()}`)
@@ -73,7 +94,7 @@ function normalizeBulletList(value: unknown): string {
     .join("\n");
 }
 
-function normalizeValidationPlan(value: unknown): string {
+function normalizeValidationPlan(value: unknown) {
   const text = String(value ?? "").trim();
   if (!text) return "";
 
@@ -112,6 +133,8 @@ function isMeaninglessIdea(input: string) {
     "ㄴㅇㄹ",
     "sdf",
     "abc",
+    "hello",
+    "hi",
   ]);
 
   if (exactMeaningless.has(normalized)) return true;
@@ -137,6 +160,7 @@ function parseJsonContent(content: string): ParsedResponse | null {
 
 function countMatches(text: string, patterns: string[]) {
   const lower = text.toLowerCase();
+
   return patterns.reduce((count, pattern) => {
     return count + (lower.includes(pattern.toLowerCase()) ? 1 : 0);
   }, 0);
@@ -228,15 +252,15 @@ function inferScoreBreakdown(parsed: ParsedResponse, idea: string): ScoreBreakdo
 
   const ideaLength = idea.trim().length;
   const hasLocalOrOperationalWord =
-    /지역|동네|예약|매칭|배송|산책|구독|결제|주문|재고|운영|앱|플랫폼|마켓|실시간|혼잡도|반려견|카페|스타벅스|matching|delivery|booking|subscription|inventory|marketplace|platform|app|real-time|crowd/i.test(
+    /지역|동네|예약|매칭|배송|산책|구독|결제|주문|재고|운영|앱|플랫폼|마켓|실시간|혼잡도|반려견|카페|스타벅스|matching|delivery|booking|subscription|inventory|marketplace|platform|app|real-time|crowd|pet|dog|cafe|starbucks/i.test(
       idea
     );
   const hasB2BOrMonetizationWord =
-    /소상공인|사장|기업|점주|구독|수수료|광고|파트너|b2b|saas|subscription|fee|commission|ads|partner/i.test(
+    /소상공인|사장|기업|점주|구독|수수료|광고|파트너|b2b|saas|subscription|fee|commission|ads|partner|brand|creator/i.test(
       idea
     );
   const hasDifferentiationWord =
-    /검증|실시간|자동|추천|분석|예측|맞춤|location|real-time|automation|recommend|analysis|prediction|personalized/i.test(
+    /검증|실시간|자동|추천|분석|예측|맞춤|location|real-time|automation|recommend|analysis|prediction|personalized|brand voice|prompt/i.test(
       idea
     );
 
@@ -285,6 +309,66 @@ function buildScoreBreakdown(parsed: ParsedResponse, idea: string): ScoreBreakdo
   };
 }
 
+function buildMeaninglessResponse(language: OutputLanguage, asOfLabel: string) {
+  if (language === "en") {
+    return {
+      language,
+      asOfLabel,
+      score: 0,
+      asOfContext: `${asOfLabel}, the input is not specific enough to be treated as a valid startup idea.\nThere is not enough context about the problem, customer, or service to judge real demand or market relevance.`,
+      whyThisScore:
+        "The input is too short or meaningless to evaluate as a startup idea.\nThere is no clear problem, target user, or value proposition to assess.\nPlease rewrite it as one or two specific sentences describing the customer, problem, and service.",
+      scoreBreakdown: {
+        problemSeverity: 0,
+        customerUrgency: 0,
+        mvpSimplicity: 0,
+        monetizationPotential: 0,
+        differentiationPotential: 0,
+      },
+      risks:
+        "- The input is too vague to estimate actual user demand.\n- The customer and use case are undefined, so the service cannot be interpreted.\n- Any validation plan based on this input would produce weak or misleading insight.",
+      improvement:
+        "- Describe who has the problem and in what situation.\n- Rewrite the idea as a problem-solving sentence, not a vague label.\n- Include the target customer, pain point, and service format in one or two clear sentences.",
+      problem:
+        "The current input does not reveal a concrete user problem. A valid startup idea needs to show at least one real pain point or unmet need.",
+      targetCustomer:
+        "The current input does not identify a target customer. Without knowing who needs the service, customer validation is not possible.",
+      mvp:
+        "An MVP cannot be designed without a defined problem and target customer. First clarify what the service does, for whom, and in what situation.",
+      validationPlan:
+        "Day 1: Rewrite the problem in one clear sentence\nDay 2: Define who has this problem\nDay 3: Describe the user situation in a concrete scene\nDay 4: Check what alternatives already exist\nDay 5: Explain why this service is needed in one sentence\nDay 6: Pick only one core feature\nDay 7: Rewrite the service description clearly\nDay 8: Explain it to 3 people and check whether they understand it\nDay 9: Remove vague or confusing wording\nDay 10: Write questions about whether target users would really care\nDay 11: Prepare 5 customer interview questions\nDay 12: Find 3 similar services\nDay 13: Write down what makes your idea different\nDay 14: Re-enter the idea in a more concrete form",
+    };
+  }
+
+  return {
+    language,
+    asOfLabel,
+    score: 0,
+    asOfContext: `${asOfLabel}, 현재 입력값은 유효한 창업 아이디어로 보기 어렵습니다.\n시장 상황이나 수요를 판단할 수 있을 정도의 문제, 고객, 서비스 맥락이 부족합니다.`,
+    whyThisScore:
+      "입력값이 너무 짧거나 무의미해 창업 아이디어로 평가할 수 없습니다.\n현재 상태로는 문제, 고객, 가치 제안을 판단할 근거가 없습니다.\n해결하려는 문제와 대상 고객이 드러나도록 한두 문장으로 다시 입력해 주세요.",
+    scoreBreakdown: {
+      problemSeverity: 0,
+      customerUrgency: 0,
+      mvpSimplicity: 0,
+      monetizationPotential: 0,
+      differentiationPotential: 0,
+    },
+    risks:
+      "- 입력값이 모호해 실제 시장 수요를 판단할 수 없습니다.\n- 문제와 고객이 정의되지 않아 어떤 서비스인지 해석이 불가능합니다.\n- 이 상태로는 검증 계획을 세워도 의미 있는 인사이트를 얻기 어렵습니다.",
+    improvement:
+      "- 누가 어떤 상황에서 어떤 문제를 겪는지 먼저 적어보세요.\n- 서비스를 한 줄 소개가 아니라 문제 해결 문장으로 바꿔 적어보세요.\n- 대상 고객, 문제 상황, 제공 방식이 드러나도록 다시 입력해 주세요.",
+    problem:
+      "현재 입력값만으로는 사용자가 겪는 구체적인 문제를 확인할 수 없습니다. 평가 가능한 창업 아이디어는 최소한 해결하려는 불편이나 수요가 드러나야 합니다.",
+    targetCustomer:
+      "현재 입력값만으로는 특정 고객군을 정의할 수 없습니다. 누가 이 서비스를 필요로 하는지 드러나야 타겟 고객을 판단할 수 있습니다.",
+    mvp:
+      "문제와 고객이 정의되지 않은 상태에서는 MVP를 설계할 수 없습니다. 먼저 해결하려는 상황과 제공하려는 핵심 기능을 한두 문장으로 구체화해야 합니다.",
+    validationPlan:
+      "1일차: 해결하려는 문제를 한 문장으로 다시 정리하기\n2일차: 누가 이 문제를 겪는지 고객군 정하기\n3일차: 고객이 겪는 상황을 구체적인 장면으로 적기\n4일차: 기존에 쓰는 대안이 있는지 조사하기\n5일차: 이 서비스가 왜 필요한지 한 문장으로 정리하기\n6일차: 핵심 기능을 1개만 정하기\n7일차: 서비스 설명 문장을 다시 작성하기\n8일차: 주변 사람 3명에게 설명하고 이해되는지 확인하기\n9일차: 이해 안 되는 표현 제거하기\n10일차: 대상 고객이 실제로 필요로 할지 질문 정리하기\n11일차: 고객 인터뷰 질문 5개 만들기\n12일차: 비슷한 서비스 사례 3개 찾아보기\n13일차: 차별점이 있는지 정리하기\n14일차: 다시 한 번 구체적인 아이디어 문장으로 입력하기",
+  };
+}
+
 export async function POST(request: NextRequest) {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -307,43 +391,24 @@ export async function POST(request: NextRequest) {
   }
 
   const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
-  const outputLanguage = /[가-힣]/.test(idea) ? "Korean" : "English";
-  const asOfLabel = getAsOfLabel();
+  const language = detectLanguage(idea);
+  const outputLanguage = language === "ko" ? "Korean" : "English";
+  const asOfLabel = getAsOfLabel(language);
 
   if (!idea) {
     return NextResponse.json(
-      { error: "Please provide an idea" },
+      {
+        error:
+          language === "en"
+            ? "Please provide an idea."
+            : "아이디어를 입력해 주세요.",
+      },
       { status: 400 }
     );
   }
 
   if (isMeaninglessIdea(idea)) {
-    return NextResponse.json({
-      asOfLabel,
-      score: 0,
-      asOfContext: `${asOfLabel}, 현재 입력값은 유효한 창업 아이디어로 보기 어렵습니다.\n시장 상황이나 수요를 판단할 수 있을 정도의 문제, 고객, 서비스 맥락이 부족합니다.`,
-      whyThisScore:
-        "입력값이 너무 짧거나 무의미해 창업 아이디어로 평가할 수 없습니다.\n현재 상태로는 문제, 고객, 가치 제안을 판단할 근거가 없어 0점 처리했습니다.\n해결하려는 문제와 대상 고객이 드러나도록 한두 문장으로 다시 입력해 주세요.",
-      scoreBreakdown: {
-        problemSeverity: 0,
-        customerUrgency: 0,
-        mvpSimplicity: 0,
-        monetizationPotential: 0,
-        differentiationPotential: 0,
-      },
-      risks:
-        "- 입력값이 모호해 실제 시장 수요를 판단할 수 없습니다.\n- 문제와 고객이 정의되지 않아 어떤 서비스인지 해석이 불가능합니다.\n- 이 상태로는 검증 계획을 세워도 의미 있는 인사이트를 얻기 어렵습니다.",
-      improvement:
-        "- 누가 어떤 상황에서 어떤 문제를 겪는지 먼저 적어보세요.\n- 서비스를 한 줄 소개가 아니라 문제 해결 문장으로 바꿔 적어보세요.\n- 대상 고객, 문제 상황, 제공 방식이 드러나도록 다시 입력해 주세요.",
-      problem:
-        "현재 입력값만으로는 사용자가 겪는 구체적인 문제를 확인할 수 없습니다. 평가 가능한 창업 아이디어는 최소한 해결하려는 불편이나 수요가 드러나야 합니다.",
-      targetCustomer:
-        "현재 입력값만으로는 특정 고객군을 정의할 수 없습니다. 누가 이 서비스를 필요로 하는지 드러나야 타겟 고객을 판단할 수 있습니다.",
-      mvp:
-        "문제와 고객이 정의되지 않은 상태에서는 MVP를 설계할 수 없습니다. 먼저 해결하려는 상황과 제공하려는 핵심 기능을 한두 문장으로 구체화해야 합니다.",
-      validationPlan:
-        "1일차: 해결하려는 문제를 한 문장으로 다시 정리하기\n2일차: 누가 이 문제를 겪는지 고객군 정하기\n3일차: 고객이 겪는 상황을 구체적인 장면으로 적기\n4일차: 기존에 쓰는 대안이 있는지 조사하기\n5일차: 이 서비스가 왜 필요한지 한 문장으로 정리하기\n6일차: 핵심 기능을 1개만 정하기\n7일차: 서비스 설명 문장을 다시 작성하기\n8일차: 주변 사람 3명에게 설명하고 이해되는지 확인하기\n9일차: 이해 안 되는 표현 제거하기\n10일차: 대상 고객이 실제로 필요로 할지 질문 정리하기\n11일차: 고객 인터뷰 질문 5개 만들기\n12일차: 비슷한 서비스 사례 3개 찾아보기\n13일차: 차별점이 있는지 정리하기\n14일차: 다시 한 번 구체적인 아이디어 문장으로 입력하기",
-    });
+    return NextResponse.json(buildMeaninglessResponse(language, asOfLabel));
   }
 
   const systemPrompt = `You are a veteran startup strategy consultant with 30 years of experience.
@@ -406,11 +471,8 @@ For validationPlan:
 - every line must be specific to the user's idea
 - every line must include at least one domain-specific noun or action related to the idea
 - include concrete channels, communities, stakeholders, data sources, trust barriers, operational constraints, or customer situations
-- avoid generic phrases like only "시장 조사", "고객 인터뷰", "MVP 설계", "프로토타입 개발"
+- avoid generic phrases like only "market research", "customer interview", "MVP design", "prototype development", "시장 조사", "고객 인터뷰", "MVP 설계", "프로토타입 개발"
 - each day should feel unusable for a totally unrelated startup idea
-- examples of specificity:
-  - for pet services: 보호자 커뮤니티, 산책 대행 신뢰, 도우미 검증, 사고 책임, 지역 수요
-  - for cafe/Starbucks ideas: 점포 혼잡도, 사이렌오더 사용자, 실시간 데이터 수집, 제휴 가능성, 유저 제보 방식
 - if a line could apply to any startup idea without changing the noun, rewrite it to be more specific
 
 Do not include markdown fences.
@@ -475,6 +537,7 @@ ${idea}`;
       breakdown.differentiationPotential;
 
     return NextResponse.json({
+      language,
       asOfLabel,
       score: totalScore,
       asOfContext: String(parsed.asOfContext ?? ""),
