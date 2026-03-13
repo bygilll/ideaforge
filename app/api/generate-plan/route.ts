@@ -3,17 +3,17 @@ import { NextRequest, NextResponse } from "next/server";
 const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
 
 type ScoreBreakdown = {
-  problemSeverity?: number;
-  customerUrgency?: number;
-  mvpSimplicity?: number;
-  monetizationPotential?: number;
-  differentiationPotential?: number;
+  problemSeverity: number;
+  customerUrgency: number;
+  mvpSimplicity: number;
+  monetizationPotential: number;
+  differentiationPotential: number;
 };
 
 type ParsedResponse = {
   asOfContext?: string;
   whyThisScore?: string;
-  scoreBreakdown?: ScoreBreakdown;
+  scoreBreakdown?: Partial<ScoreBreakdown>;
   risks?: string | string[];
   improvement?: string | string[];
   problem?: string;
@@ -23,8 +23,8 @@ type ParsedResponse = {
 };
 
 function clamp(value: unknown, min: number, max: number) {
-  const num = typeof value === "number" ? value : Number(value ?? 0);
-  if (Number.isNaN(num)) return min;
+  const num = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(num)) return min;
   return Math.max(min, Math.min(max, Math.round(num)));
 }
 
@@ -115,15 +115,40 @@ function isMeaninglessIdea(input: string) {
   ]);
 
   if (exactMeaningless.has(normalized)) return true;
-
-  // 같은 문자 반복, 자음/모음만 반복 같은 입력 차단
   if (/^([ㄱ-ㅎㅏ-ㅣa-zA-Z0-9])\1+$/.test(trimmed)) return true;
 
-  // 공백 제거 후 길이가 너무 짧고 문맥이 전혀 없으면 차단
   const compact = trimmed.replace(/\s+/g, "");
   if (compact.length <= 2) return true;
 
   return false;
+}
+
+function parseJsonContent(content: string): ParsedResponse | null {
+  const cleaned = content
+    .replace(/^```(?:json)?\s*/i, "")
+    .replace(/\s*```$/i, "");
+
+  try {
+    return JSON.parse(cleaned) as ParsedResponse;
+  } catch {
+    return null;
+  }
+}
+
+function hasValidBreakdown(
+  breakdown: Partial<ScoreBreakdown> | undefined
+): breakdown is ScoreBreakdown {
+  if (!breakdown) return false;
+
+  const keys: (keyof ScoreBreakdown)[] = [
+    "problemSeverity",
+    "customerUrgency",
+    "mvpSimplicity",
+    "monetizationPotential",
+    "differentiationPotential",
+  ];
+
+  return keys.every((key) => typeof breakdown[key] === "number");
 }
 
 export async function POST(request: NextRequest) {
@@ -213,6 +238,7 @@ The "scoreBreakdown" object must have these exact keys:
 
 Scoring rubric:
 - Each scoreBreakdown field must be an integer from 0 to 20.
+- You must return all five scoreBreakdown fields.
 - Do NOT return a separate total score.
 - The server will calculate the total score by summing the 5 category scores.
 
@@ -225,30 +251,13 @@ Category meaning:
 
 If the input is a valid startup idea:
 - asOfContext: exactly 2 sentences
-  - first sentence must start with "${asOfLabel}"
-  - mention the current market or demand context realistically, without hype
 - whyThisScore: exactly 3 sentences
-  - explain the score with judgment, not encouragement
-  - do not soften weak points
 - risks: exactly 3 bullet points worth of content
-  - focus on why this idea may fail
-  - be critical, concrete, and unsentimental
 - improvement: exactly 3 bullet points worth of content
-  - actionable, specific, and practical
 - problem: 2-3 sentences
 - targetCustomer: 2-3 sentences
 - mvp: 2-4 sentences
-
-For validationPlan:
-- return exactly 14 lines
-- one line per day
-- Korean format: "1일차: ..."
-- English format: "Day 1: ..."
-- every line must be specific to the user's idea
-- every line must mention idea-related keywords, target users, channels, or domain context
-- avoid generic startup steps that could apply to any idea
-- bad example: "시장 조사", "인터뷰", "MVP 개발 시작" only
-- good example: include concrete references to the idea category, customer type, acquisition channel, trust issue, operational constraint, or niche domain keyword
+- validationPlan: exactly 14 lines, one line per day
 
 Do not include markdown fences.
 Return JSON only.`;
@@ -262,7 +271,7 @@ ${idea}`;
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
+        Authorization: \`Bearer \${apiKey}\`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -278,7 +287,7 @@ ${idea}`;
     if (!res.ok) {
       const err = await res.text();
       return NextResponse.json(
-        { error: `OpenAI API error: ${res.status}. ${err}` },
+        { error: \`OpenAI API error: \${res.status}. \${err}\` },
         { status: 502 }
       );
     }
@@ -302,12 +311,19 @@ ${idea}`;
       );
     }
 
+    if (!hasValidBreakdown(parsed.scoreBreakdown)) {
+      return NextResponse.json(
+        { error: "AI response did not include a valid score breakdown." },
+        { status: 502 }
+      );
+    }
+
     const breakdown = {
-      problemSeverity: clamp(parsed.scoreBreakdown?.problemSeverity, 0, 20),
-      customerUrgency: clamp(parsed.scoreBreakdown?.customerUrgency, 0, 20),
-      mvpSimplicity: clamp(parsed.scoreBreakdown?.mvpSimplicity, 0, 20),
-      monetizationPotential: clamp(parsed.scoreBreakdown?.monetizationPotential, 0, 20),
-      differentiationPotential: clamp(parsed.scoreBreakdown?.differentiationPotential, 0, 20),
+      problemSeverity: clamp(parsed.scoreBreakdown.problemSeverity, 0, 20),
+      customerUrgency: clamp(parsed.scoreBreakdown.customerUrgency, 0, 20),
+      mvpSimplicity: clamp(parsed.scoreBreakdown.mvpSimplicity, 0, 20),
+      monetizationPotential: clamp(parsed.scoreBreakdown.monetizationPotential, 0, 20),
+      differentiationPotential: clamp(parsed.scoreBreakdown.differentiationPotential, 0, 20),
     };
 
     const totalScore =
@@ -336,17 +352,5 @@ ${idea}`;
       { error: message },
       { status: 502 }
     );
-  }
-}
-
-function parseJsonContent(content: string): ParsedResponse | null {
-  const cleaned = content
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/i, "");
-
-  try {
-    return JSON.parse(cleaned) as ParsedResponse;
-  } catch {
-    return null;
   }
 }
