@@ -100,7 +100,7 @@ function isMeaninglessIdea(input: string) {
 
   const normalized = trimmed.toLowerCase();
 
-  const meaninglessPatterns = [
+  const exactMeaningless = new Set([
     "asdf",
     "test",
     "qwer",
@@ -109,23 +109,19 @@ function isMeaninglessIdea(input: string) {
     "123123",
     "ㅁㄴㅇㄹ",
     "ㅇㅇ",
-    "아무말",
     "ㄴㅇㄹ",
     "sdf",
-  ];
+    "abc",
+  ]);
 
-  if (meaninglessPatterns.includes(normalized)) return true;
+  if (exactMeaningless.has(normalized)) return true;
 
-  const hasKorean = /[가-힣]/.test(trimmed);
-  const hasEnglish = /[a-zA-Z]/.test(trimmed);
-  const hasNumber = /[0-9]/.test(trimmed);
+  // 같은 문자 반복, 자음/모음만 반복 같은 입력 차단
+  if (/^([ㄱ-ㅎㅏ-ㅣa-zA-Z0-9])\1+$/.test(trimmed)) return true;
 
-  if (!hasKorean && !hasEnglish && !hasNumber) return true;
-
-  if (trimmed.length <= 3) return true;
-
-  const words = trimmed.split(/\s+/).filter(Boolean);
-  if (words.length === 1 && trimmed.length <= 5) return true;
+  // 공백 제거 후 길이가 너무 짧고 문맥이 전혀 없으면 차단
+  const compact = trimmed.replace(/\s+/g, "");
+  if (compact.length <= 2) return true;
 
   return false;
 }
