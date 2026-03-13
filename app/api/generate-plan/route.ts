@@ -135,20 +135,151 @@ function parseJsonContent(content: string): ParsedResponse | null {
   }
 }
 
-function hasValidBreakdown(
-  breakdown: Partial<ScoreBreakdown> | undefined
-): breakdown is ScoreBreakdown {
-  if (!breakdown) return false;
+function countMatches(text: string, patterns: string[]) {
+  const lower = text.toLowerCase();
+  return patterns.reduce((count, pattern) => {
+    return count + (lower.includes(pattern.toLowerCase()) ? 1 : 0);
+  }, 0);
+}
 
-  const keys: (keyof ScoreBreakdown)[] = [
-    "problemSeverity",
-    "customerUrgency",
-    "mvpSimplicity",
-    "monetizationPotential",
-    "differentiationPotential",
+function inferScoreBreakdown(parsed: ParsedResponse, idea: string): ScoreBreakdown {
+  const combinedText = [
+    idea,
+    parsed.asOfContext ?? "",
+    parsed.whyThisScore ?? "",
+    Array.isArray(parsed.risks) ? parsed.risks.join(" ") : String(parsed.risks ?? ""),
+    Array.isArray(parsed.improvement)
+      ? parsed.improvement.join(" ")
+      : String(parsed.improvement ?? ""),
+    parsed.problem ?? "",
+    parsed.targetCustomer ?? "",
+    parsed.mvp ?? "",
+    parsed.validationPlan ?? "",
+  ].join(" ");
+
+  const negativePatterns = [
+    "어렵",
+    "불확실",
+    "제한적",
+    "부족",
+    "낮",
+    "약",
+    "리스크",
+    "위험",
+    "문제",
+    "불분명",
+    "모호",
+    "불가능",
+    "불리",
+    "경쟁",
+    "치열",
+    "비용",
+    "복잡",
+    "느림",
+    "difficult",
+    "unclear",
+    "uncertain",
+    "limited",
+    "weak",
+    "risk",
+    "risky",
+    "problem",
+    "hard",
+    "expensive",
+    "competitive",
+    "crowded",
+    "low",
+    "poor",
   ];
 
-  return keys.every((key) => typeof breakdown[key] === "number");
+  const positivePatterns = [
+    "수요",
+    "필요",
+    "명확",
+    "유효",
+    "강점",
+    "기회",
+    "실행",
+    "가능",
+    "검증",
+    "유리",
+    "차별화",
+    "고객",
+    "시장",
+    "명백",
+    "확장",
+    "안정",
+    "demand",
+    "need",
+    "clear",
+    "strong",
+    "opportunity",
+    "viable",
+    "feasible",
+    "validation",
+    "customer",
+    "market",
+    "differentiated",
+    "scalable",
+  ];
+
+  const negatives = countMatches(combinedText, negativePatterns);
+  const positives = countMatches(combinedText, positivePatterns);
+
+  const ideaLength = idea.trim().length;
+  const hasLocalOrOperationalWord = /지역|동네|예약|매칭|배송|산책|구독|결제|주문|재고|운영|앱|플랫폼|마켓|예약|matching|delivery|booking|subscription|inventory|marketplace|platform|app/i.test(
+    idea
+  );
+  const hasB2BOrMonetizationWord = /소상공인|사장|기업|점주|구독|수수료|광고|파트너|b2b|saas|subscription|fee|commission|ads|partner/i.test(
+    idea
+  );
+  const hasDifferentiationWord = /검증|실시간|자동|추천|분석|예측|맞춤|location|real-time|automation|recommend|analysis|prediction|personalized/i.test(
+    idea
+  );
+
+  const baseProblem = ideaLength >= 18 ? 12 : 8;
+  const baseUrgency = ideaLength >= 18 ? 11 : 7;
+  const baseMvp = hasLocalOrOperationalWord ? 11 : 9;
+  const baseMonetization = hasB2BOrMonetizationWord ? 12 : 9;
+  const baseDifferentiation = hasDifferentiationWord ? 11 : 8;
+
+  const adjustment = Math.max(-4, Math.min(4, positives - negatives));
+
+  return {
+    problemSeverity: clamp(baseProblem + adjustment, 0, 20),
+    customerUrgency: clamp(baseUrgency + adjustment, 0, 20),
+    mvpSimplicity: clamp(baseMvp + adjustment, 0, 20),
+    monetizationPotential: clamp(baseMonetization + adjustment, 0, 20),
+    differentiationPotential: clamp(baseDifferentiation + adjustment, 0, 20),
+  };
+}
+
+function buildScoreBreakdown(parsed: ParsedResponse, idea: string): ScoreBreakdown {
+  const fallback = inferScoreBreakdown(parsed, idea);
+  const raw = parsed.scoreBreakdown ?? {};
+
+  return {
+    problemSeverity:
+      typeof raw.problemSeverity === "number"
+        ? clamp(raw.problemSeverity, 0, 20)
+        : fallback.problemSeverity,
+    customerUrgency:
+      typeof raw.customerUrgency === "number"
+        ? clamp(raw.customerUrgency, 0, 20)
+        : fallback.customerUrgency,
+    mvpSimplicity:
+      typeof raw.mvpSimplicity === "number"
+        ? clamp(raw.mvpSimplicity, 0, 20)
+        : fallback.mvpSimplicity,
+    monetizationPotential:
+      typeof raw.monetizationPotential === "number"
+        ? clamp(raw.monetizationPotential, 0, 20)
+        : fallback.monetizationPotential,
+    differentiationPotential:
+      typeof raw.differentiationPotential === "number"
+        ? clamp(raw.differentiationPotential, 0, 20)
+        : fallback.differentiationPotential,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -233,12 +364,11 @@ Do not mix languages.
 Return VALID JSON only with these exact keys:
 "asOfContext", "whyThisScore", "scoreBreakdown", "risks", "improvement", "problem", "targetCustomer", "mvp", "validationPlan".
 
-The "scoreBreakdown" object must have these exact keys:
+The "scoreBreakdown" object should have these exact keys:
 "problemSeverity", "customerUrgency", "mvpSimplicity", "monetizationPotential", "differentiationPotential".
 
 Scoring rubric:
-- Each scoreBreakdown field must be an integer from 0 to 20.
-- You must return all five scoreBreakdown fields.
+- Each scoreBreakdown field should be an integer from 0 to 20.
 - Do NOT return a separate total score.
 - The server will calculate the total score by summing the 5 category scores.
 
@@ -311,20 +441,7 @@ ${idea}`;
       );
     }
 
-    if (!hasValidBreakdown(parsed.scoreBreakdown)) {
-      return NextResponse.json(
-        { error: "AI response did not include a valid score breakdown." },
-        { status: 502 }
-      );
-    }
-
-    const breakdown = {
-      problemSeverity: clamp(parsed.scoreBreakdown.problemSeverity, 0, 20),
-      customerUrgency: clamp(parsed.scoreBreakdown.customerUrgency, 0, 20),
-      mvpSimplicity: clamp(parsed.scoreBreakdown.mvpSimplicity, 0, 20),
-      monetizationPotential: clamp(parsed.scoreBreakdown.monetizationPotential, 0, 20),
-      differentiationPotential: clamp(parsed.scoreBreakdown.differentiationPotential, 0, 20),
-    };
+    const breakdown = buildScoreBreakdown(parsed, idea);
 
     const totalScore =
       breakdown.problemSeverity +
