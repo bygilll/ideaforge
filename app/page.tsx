@@ -2,157 +2,195 @@
 
 import { useState } from "react";
 
-export type ValidationPlan = {
+type PlanResponse = {
   problem: string;
   targetCustomer: string;
   mvp: string;
   validationPlan: string;
 };
 
-export default function Home() {
-  const [idea, setIdea] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [plan, setPlan] = useState<ValidationPlan | null>(null);
+function formatValidationPlan(value: string) {
+  try {
+    const parsed = JSON.parse(value);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!idea.trim()) return;
+    if (parsed && typeof parsed === "object") {
+      return Object.entries(parsed)
+        .map(([day, text]) => `${day}: ${String(text)}`)
+        .join("\n");
+    }
+
+    return value;
+  } catch {
+    return value;
+  }
+}
+
+export default function Page() {
+  const [idea, setIdea] = useState("");
+  const [result, setResult] = useState<PlanResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleGenerate() {
     setLoading(true);
-    setError(null);
-    setPlan(null);
+    setError("");
+    setResult(null);
+
     try {
       const res = await fetch("/api/generate-plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idea: idea.trim() }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ idea }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to generate plan");
-      setPlan(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+
+      if (!res.ok) {
+        setError(data?.error || "Something went wrong");
+        return;
+      }
+
+      setResult(data);
+    } catch {
+      setError("Request failed");
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <main style={styles.main}>
-      <div style={styles.container}>
-        <h1 style={styles.headline}>
-          Turn your startup idea into a 14-day validation plan
-        </h1>
-        <form onSubmit={handleSubmit} style={styles.form}>
-          <textarea
-            value={idea}
-            onChange={(e) => setIdea(e.target.value)}
-            placeholder="Describe your startup idea in a few sentences..."
-            rows={5}
-            style={styles.textarea}
-            disabled={loading}
-          />
-          <button type="submit" disabled={loading} style={styles.button}>
-            {loading ? "Generating..." : "Generate Plan"}
-          </button>
-        </form>
+    <main
+      style={{
+        maxWidth: 860,
+        margin: "0 auto",
+        padding: "40px 24px 80px",
+        fontFamily: "Arial, sans-serif",
+      }}
+    >
+      <h1
+        style={{
+          fontSize: 24,
+          fontWeight: 700,
+          marginBottom: 24,
+          lineHeight: 1.3,
+        }}
+      >
+        Turn your startup idea into a 14-day validation plan
+      </h1>
 
-        {error && (
-          <p style={styles.error} role="alert">
-            {error}
-          </p>
-        )}
+      <textarea
+        value={idea}
+        onChange={(e) => setIdea(e.target.value)}
+        placeholder="Describe your startup idea in a few sentences..."
+        style={{
+          width: "100%",
+          minHeight: 120,
+          padding: 16,
+          fontSize: 16,
+          border: "1px solid #ddd",
+          borderRadius: 8,
+          resize: "vertical",
+          marginBottom: 16,
+        }}
+      />
 
-        {plan && (
-          <div style={styles.results}>
-            <section style={styles.section}>
-              <h2 style={styles.sectionTitle}>1. Problem</h2>
-              <p style={styles.sectionBody}>{plan.problem}</p>
-            </section>
-            <section style={styles.section}>
-              <h2 style={styles.sectionTitle}>2. Target Customer</h2>
-              <p style={styles.sectionBody}>{plan.targetCustomer}</p>
-            </section>
-            <section style={styles.section}>
-              <h2 style={styles.sectionTitle}>3. MVP</h2>
-              <p style={styles.sectionBody}>{plan.mvp}</p>
-            </section>
-            <section style={styles.section}>
-              <h2 style={styles.sectionTitle}>4. 14-Day Validation Plan</h2>
-              <p style={styles.sectionBody}>{plan.validationPlan}</p>
-            </section>
-          </div>
-        )}
-      </div>
+      <button
+        onClick={handleGenerate}
+        disabled={loading || !idea.trim()}
+        style={{
+          width: "100%",
+          padding: "14px 16px",
+          backgroundColor: "#000",
+          color: "#fff",
+          border: "none",
+          borderRadius: 8,
+          fontSize: 16,
+          fontWeight: 600,
+          cursor: "pointer",
+          marginBottom: 24,
+          opacity: loading || !idea.trim() ? 0.7 : 1,
+        }}
+      >
+        {loading ? "Generating..." : "Generate Plan"}
+      </button>
+
+      {error ? (
+        <p style={{ color: "red", marginBottom: 24 }}>{error}</p>
+      ) : null}
+
+      {result ? (
+        <div style={{ display: "grid", gap: 16 }}>
+          <section
+            style={{
+              border: "1px solid #e5e5e5",
+              borderRadius: 8,
+              padding: 16,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
+              1. Problem
+            </h2>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>
+              {result.problem}
+            </p>
+          </section>
+
+          <section
+            style={{
+              border: "1px solid #e5e5e5",
+              borderRadius: 8,
+              padding: 16,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
+              2. Target Customer
+            </h2>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>
+              {result.targetCustomer}
+            </p>
+          </section>
+
+          <section
+            style={{
+              border: "1px solid #e5e5e5",
+              borderRadius: 8,
+              padding: 16,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
+              3. MVP
+            </h2>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.6, margin: 0 }}>
+              {result.mvp}
+            </p>
+          </section>
+
+          <section
+            style={{
+              border: "1px solid #e5e5e5",
+              borderRadius: 8,
+              padding: 16,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
+              4. 14-Day Validation Plan
+            </h2>
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.8,
+                margin: 0,
+                fontFamily: "inherit",
+                fontSize: 16,
+              }}
+            >
+              {formatValidationPlan(result.validationPlan)}
+            </pre>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
-
-const styles: Record<string, React.CSSProperties> = {
-  main: {
-    minHeight: "100vh",
-    padding: "2rem 1rem",
-  },
-  container: {
-    maxWidth: "640px",
-    margin: "0 auto",
-  },
-  headline: {
-    fontSize: "1.75rem",
-    fontWeight: 600,
-    marginBottom: "1.5rem",
-    lineHeight: 1.3,
-    color: "#111",
-  },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1rem",
-    marginBottom: "1.5rem",
-  },
-  textarea: {
-    width: "100%",
-    padding: "0.75rem 1rem",
-    fontSize: "1rem",
-    border: "1px solid #ddd",
-    borderRadius: "8px",
-    resize: "vertical",
-    fontFamily: "inherit",
-  },
-  button: {
-    padding: "0.75rem 1.5rem",
-    fontSize: "1rem",
-    fontWeight: 500,
-    color: "#fff",
-    background: "#111",
-    border: "none",
-    borderRadius: "8px",
-    cursor: "pointer",
-  },
-  error: {
-    color: "#c00",
-    marginBottom: "1rem",
-  },
-  results: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "1.5rem",
-  },
-  section: {
-    padding: "1.25rem",
-    background: "#fff",
-    borderRadius: "8px",
-    border: "1px solid #eee",
-  },
-  sectionTitle: {
-    fontSize: "1rem",
-    fontWeight: 600,
-    marginBottom: "0.5rem",
-    color: "#333",
-  },
-  sectionBody: {
-    fontSize: "0.95rem",
-    color: "#444",
-    whiteSpace: "pre-wrap",
-  },
-};
