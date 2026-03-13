@@ -33,6 +33,7 @@ const LABELS = {
     pageSubtitle: "Validate your startup idea before you build it",
     intro:
       "AI가 당신의 아이디어를 14일 검증 플랜으로 바꿔줍니다.\n아이디어를 막연한 낙관이 아니라 실행 가능한 검증 구조로 바꿔보세요.",
+    englishHint: "You can also enter your idea in English.",
     placeholder:
       "검증하고 싶은 창업 아이디어를 한두 문장으로, 구체적으로 적어보세요.\n예: 혼자 사는 직장인이 퇴근 후 반려견 산책을 맡길 수 있도록, 근처 검증된 산책 도우미를 연결해주는 서비스\n예: 동네 카페 사장이 재고 부족을 미리 파악할 수 있도록, 판매 흐름을 기반으로 발주 시점을 알려주는 재고 관리 서비스",
     createButton: "검증 플랜 만들기",
@@ -84,6 +85,7 @@ const LABELS = {
     pageSubtitle: "Get a 14-day validation plan before you start building",
     intro:
       "IdeaForge AI turns your startup idea into a 14-day validation plan.\nMove from vague optimism to something you can actually test.",
+    englishHint: "You can also enter your idea in English.",
     placeholder:
       "Describe your startup idea in one or two specific sentences.\nExample: A service that connects busy pet owners with verified local dog walkers for evening walks\nExample: A tool that helps neighborhood cafe owners predict reorder timing based on daily sales flow",
     createButton: "Generate Validation Plan",
@@ -133,6 +135,7 @@ const LABELS = {
 } as const;
 
 function detectInputLanguage(text: string): OutputLanguage {
+  if (!text.trim()) return "ko";
   return /[가-힣]/.test(text) ? "ko" : "en";
 }
 
@@ -164,8 +167,9 @@ export default function Page() {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const hasAutoRunRef = useRef(false);
 
-  const activeLanguage: OutputLanguage = result?.language ?? detectInputLanguage(idea || "ko");
-  const ui = LABELS[activeLanguage];
+  const activeLanguage: OutputLanguage = detectInputLanguage(idea);
+  const inputUi = LABELS[activeLanguage];
+  const resultUi = LABELS[result?.language ?? activeLanguage];
 
   const cardSummary = useMemo(() => {
     if (!result) return null;
@@ -180,11 +184,11 @@ export default function Page() {
 
   async function generatePlan(overrideIdea?: string) {
     const finalIdea = (overrideIdea ?? idea).trim();
-    const inputLanguage = detectInputLanguage(finalIdea);
-    const inputUi = LABELS[inputLanguage];
+    const language = detectInputLanguage(finalIdea);
+    const ui = LABELS[language];
 
     if (!finalIdea) {
-      setError(inputUi.emptyError);
+      setError(ui.emptyError);
       return;
     }
 
@@ -206,7 +210,7 @@ export default function Page() {
       const data = await res.json();
 
       if (!res.ok) {
-        setError(data?.error || inputUi.emptyError);
+        setError(data?.error || ui.emptyError);
         return;
       }
 
@@ -219,7 +223,7 @@ export default function Page() {
         window.history.replaceState({}, "", url.toString());
       }
     } catch {
-      setError(inputLanguage === "en" ? "Something went wrong." : "요청 처리 중 문제가 발생했습니다.");
+      setError(language === "en" ? "Something went wrong." : "요청 처리 중 문제가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -233,10 +237,10 @@ export default function Page() {
       url.searchParams.set("idea", idea.trim());
 
       await navigator.clipboard.writeText(url.toString());
-      setCopyMessage(ui.copySuccess);
+      setCopyMessage(resultUi.copySuccess);
       setTimeout(() => setCopyMessage(""), 2000);
     } catch {
-      setCopyMessage(ui.copyFail);
+      setCopyMessage(resultUi.copyFail);
       setTimeout(() => setCopyMessage(""), 2000);
     }
   }
@@ -256,10 +260,10 @@ export default function Page() {
       link.href = dataUrl;
       link.click();
 
-      setDownloadMessage(ui.saveSuccess);
+      setDownloadMessage(resultUi.saveSuccess);
       setTimeout(() => setDownloadMessage(""), 2000);
     } catch {
-      setDownloadMessage(ui.saveFail);
+      setDownloadMessage(resultUi.saveFail);
       setTimeout(() => setDownloadMessage(""), 2000);
     }
   }
@@ -298,7 +302,7 @@ export default function Page() {
             letterSpacing: "-0.02em",
           }}
         >
-          {`${ui.pageTitle}\n${ui.pageSubtitle}`}
+          {`${inputUi.pageTitle}\n${inputUi.pageSubtitle}`}
         </h1>
 
         <p
@@ -310,14 +314,26 @@ export default function Page() {
             whiteSpace: "pre-line",
           }}
         >
-          {ui.intro}
+          {inputUi.intro}
         </p>
       </div>
+
+      <p
+        style={{
+          fontSize: 14,
+          color: "#666",
+          marginTop: 0,
+          marginBottom: 10,
+          fontWeight: 600,
+        }}
+      >
+        {inputUi.englishHint}
+      </p>
 
       <textarea
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
-        placeholder={ui.placeholder}
+        placeholder={inputUi.placeholder}
         style={{
           width: "100%",
           minHeight: 120,
@@ -349,7 +365,7 @@ export default function Page() {
           opacity: loading || !idea.trim() ? 0.7 : 1,
         }}
       >
-        {loading ? ui.loadingButton : ui.createButton}
+        {loading ? inputUi.loadingButton : inputUi.createButton}
       </button>
 
       {error ? (
@@ -401,7 +417,7 @@ export default function Page() {
                       marginTop: 4,
                     }}
                   >
-                    {ui.shareLabel}
+                    {resultUi.shareLabel}
                   </div>
                 </div>
 
@@ -495,7 +511,7 @@ export default function Page() {
                         letterSpacing: "0.04em",
                       }}
                     >
-                      {ui.summaryLabel.toUpperCase()}
+                      {resultUi.summaryLabel.toUpperCase()}
                     </div>
                     <div
                       style={{
@@ -524,7 +540,7 @@ export default function Page() {
                         letterSpacing: "0.04em",
                       }}
                     >
-                      {ui.riskLabel.toUpperCase()}
+                      {resultUi.riskLabel.toUpperCase()}
                     </div>
                     <div
                       style={{
@@ -560,7 +576,7 @@ export default function Page() {
                   cursor: "pointer",
                 }}
               >
-                {ui.saveImage}
+                {resultUi.saveImage}
               </button>
 
               <button
@@ -576,7 +592,7 @@ export default function Page() {
                   cursor: "pointer",
                 }}
               >
-                {ui.copyLink}
+                {resultUi.copyLink}
               </button>
 
               {downloadMessage ? (
@@ -620,7 +636,7 @@ export default function Page() {
                 fontWeight: 700,
               }}
             >
-              {ui.resultTitle}
+              {resultUi.resultTitle}
             </p>
             <p
               style={{
@@ -630,7 +646,7 @@ export default function Page() {
                 margin: 0,
               }}
             >
-              {ui.resultIntro}
+              {resultUi.resultIntro}
             </p>
           </div>
 
@@ -642,7 +658,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.score}
+              {resultUi.score}
             </h2>
             <p
               style={{
@@ -663,7 +679,7 @@ export default function Page() {
                 marginBottom: 0,
               }}
             >
-              {ui.scoreDesc}
+              {resultUi.scoreDesc}
             </p>
           </section>
 
@@ -675,7 +691,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.asOf}
+              {resultUi.asOf}
             </h2>
             <p
               style={{
@@ -687,7 +703,7 @@ export default function Page() {
                 fontWeight: 700,
               }}
             >
-              {ui.asOfPrefix}: {result.asOfLabel}
+              {resultUi.asOfPrefix}: {result.asOfLabel}
             </p>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.asOfContext}
@@ -702,7 +718,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.why}
+              {resultUi.why}
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.whyThisScore}
@@ -717,42 +733,42 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.breakdown}
+              {resultUi.breakdown}
             </h2>
 
             <div style={{ display: "grid", gap: 12 }}>
               <div>
-                <strong>{ui.problemSeverity}</strong>: {result.scoreBreakdown.problemSeverity} / 20
+                <strong>{resultUi.problemSeverity}</strong>: {result.scoreBreakdown.problemSeverity} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  {ui.problemSeverityDesc}
+                  {resultUi.problemSeverityDesc}
                 </div>
               </div>
 
               <div>
-                <strong>{ui.customerUrgency}</strong>: {result.scoreBreakdown.customerUrgency} / 20
+                <strong>{resultUi.customerUrgency}</strong>: {result.scoreBreakdown.customerUrgency} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  {ui.customerUrgencyDesc}
+                  {resultUi.customerUrgencyDesc}
                 </div>
               </div>
 
               <div>
-                <strong>{ui.mvpSimplicity}</strong>: {result.scoreBreakdown.mvpSimplicity} / 20
+                <strong>{resultUi.mvpSimplicity}</strong>: {result.scoreBreakdown.mvpSimplicity} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  {ui.mvpSimplicityDesc}
+                  {resultUi.mvpSimplicityDesc}
                 </div>
               </div>
 
               <div>
-                <strong>{ui.monetizationPotential}</strong>: {result.scoreBreakdown.monetizationPotential} / 20
+                <strong>{resultUi.monetizationPotential}</strong>: {result.scoreBreakdown.monetizationPotential} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  {ui.monetizationPotentialDesc}
+                  {resultUi.monetizationPotentialDesc}
                 </div>
               </div>
 
               <div>
-                <strong>{ui.differentiationPotential}</strong>: {result.scoreBreakdown.differentiationPotential} / 20
+                <strong>{resultUi.differentiationPotential}</strong>: {result.scoreBreakdown.differentiationPotential} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  {ui.differentiationPotentialDesc}
+                  {resultUi.differentiationPotentialDesc}
                 </div>
               </div>
             </div>
@@ -766,7 +782,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.risks}
+              {resultUi.risks}
             </h2>
             <pre
               style={{
@@ -789,7 +805,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.improvement}
+              {resultUi.improvement}
             </h2>
             <pre
               style={{
@@ -812,7 +828,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.problem}
+              {resultUi.problem}
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.problem}
@@ -827,7 +843,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.target}
+              {resultUi.target}
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.targetCustomer}
@@ -842,7 +858,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.mvp}
+              {resultUi.mvp}
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.mvp}
@@ -857,7 +873,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              {ui.plan}
+              {resultUi.plan}
             </h2>
             <pre
               style={{
