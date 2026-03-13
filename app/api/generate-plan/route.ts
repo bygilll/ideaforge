@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
   }
 
   const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
-
+  const outputLanguage = /[가-힣]/.test(idea) ? "Korean" : "English";
   if (!idea) {
     return NextResponse.json(
       { error: "Please provide an idea" },
@@ -34,8 +34,8 @@ export async function POST(request: NextRequest) {
 
   const systemPrompt = `You are a strict startup validation expert.
 
-The user may write in Korean or English.
-Always respond in the SAME language as the user's input.
+The required output language is ${outputLanguage}.
+You must respond ONLY in ${outputLanguage}.
 
 You must return VALID JSON only with these exact keys:
 "score", "problem", "targetCustomer", "mvp", "validationPlan".
@@ -81,7 +81,7 @@ ${idea}`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        temperature: 0.7,
+        temperature: 0,
         response_format: { type: "json_object" },
       }),
     });
