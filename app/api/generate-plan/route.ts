@@ -227,15 +227,18 @@ function inferScoreBreakdown(parsed: ParsedResponse, idea: string): ScoreBreakdo
   const positives = countMatches(combinedText, positivePatterns);
 
   const ideaLength = idea.trim().length;
-  const hasLocalOrOperationalWord = /지역|동네|예약|매칭|배송|산책|구독|결제|주문|재고|운영|앱|플랫폼|마켓|예약|matching|delivery|booking|subscription|inventory|marketplace|platform|app/i.test(
-    idea
-  );
-  const hasB2BOrMonetizationWord = /소상공인|사장|기업|점주|구독|수수료|광고|파트너|b2b|saas|subscription|fee|commission|ads|partner/i.test(
-    idea
-  );
-  const hasDifferentiationWord = /검증|실시간|자동|추천|분석|예측|맞춤|location|real-time|automation|recommend|analysis|prediction|personalized/i.test(
-    idea
-  );
+  const hasLocalOrOperationalWord =
+    /지역|동네|예약|매칭|배송|산책|구독|결제|주문|재고|운영|앱|플랫폼|마켓|실시간|혼잡도|반려견|카페|스타벅스|matching|delivery|booking|subscription|inventory|marketplace|platform|app|real-time|crowd/i.test(
+      idea
+    );
+  const hasB2BOrMonetizationWord =
+    /소상공인|사장|기업|점주|구독|수수료|광고|파트너|b2b|saas|subscription|fee|commission|ads|partner/i.test(
+      idea
+    );
+  const hasDifferentiationWord =
+    /검증|실시간|자동|추천|분석|예측|맞춤|location|real-time|automation|recommend|analysis|prediction|personalized/i.test(
+      idea
+    );
 
   const baseProblem = ideaLength >= 18 ? 12 : 8;
   const baseUrgency = ideaLength >= 18 ? 11 : 7;
@@ -381,13 +384,34 @@ Category meaning:
 
 If the input is a valid startup idea:
 - asOfContext: exactly 2 sentences
+  - do not just restate the idea
+  - mention current market context, adoption barrier, competitive structure, trust issue, data dependency, operational challenge, or demand realism
 - whyThisScore: exactly 3 sentences
+  - explain the score with judgment, not encouragement
+  - explicitly mention at least one structural weakness or execution risk
 - risks: exactly 3 bullet points worth of content
+  - focus on why this idea may fail
+  - be critical, concrete, and unsentimental
 - improvement: exactly 3 bullet points worth of content
+  - actionable, specific, and practical
 - problem: 2-3 sentences
 - targetCustomer: 2-3 sentences
 - mvp: 2-4 sentences
-- validationPlan: exactly 14 lines, one line per day
+
+For validationPlan:
+- return exactly 14 lines
+- one line per day
+- Korean format: "1일차: ..."
+- English format: "Day 1: ..."
+- every line must be specific to the user's idea
+- every line must include at least one domain-specific noun or action related to the idea
+- include concrete channels, communities, stakeholders, data sources, trust barriers, operational constraints, or customer situations
+- avoid generic phrases like only "시장 조사", "고객 인터뷰", "MVP 설계", "프로토타입 개발"
+- each day should feel unusable for a totally unrelated startup idea
+- examples of specificity:
+  - for pet services: 보호자 커뮤니티, 산책 대행 신뢰, 도우미 검증, 사고 책임, 지역 수요
+  - for cafe/Starbucks ideas: 점포 혼잡도, 사이렌오더 사용자, 실시간 데이터 수집, 제휴 가능성, 유저 제보 방식
+- if a line could apply to any startup idea without changing the noun, rewrite it to be more specific
 
 Do not include markdown fences.
 Return JSON only.`;
