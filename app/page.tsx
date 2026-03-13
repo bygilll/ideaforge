@@ -77,7 +77,7 @@ export default function Page() {
           lineHeight: 1.3,
         }}
       >
-        Turn your startup idea into a 14-day validation plan
+        아이디어, 만들기 전에 검증하자
       </h1>
 
       <textarea
