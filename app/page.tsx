@@ -69,16 +69,31 @@ export default function Page() {
         fontFamily: "Arial, sans-serif",
       }}
     >
-      <h1
-        style={{
-          fontSize: 24,
-          fontWeight: 700,
-          marginBottom: 24,
-          lineHeight: 1.3,
-        }}
-      >
-        아이디어, 만들기 전에 검증해라
-      </h1>
+     <div style={{ marginBottom: 24 }}>
+  <h1
+    style={{
+      fontSize: 28,
+      fontWeight: 700,
+      marginBottom: 10,
+      lineHeight: 1.35,
+      whiteSpace: "pre-line",
+    }}
+  >
+    {"아이디어, 만들기 전에 검증해라\nValidate your startup idea before you build it"}
+  </h1>
+
+  <p
+    style={{
+      fontSize: 16,
+      color: "#555",
+      lineHeight: 1.6,
+      margin: 0,
+      whiteSpace: "pre-line",
+    }}
+  >
+    {"AI가 당신의 아이디어를 14일 검증 플랜으로 바꿔줍니다\nTurn your startup idea into a 14-day validation plan"}
+  </p>
+</div>
 
       <textarea
         value={idea}
