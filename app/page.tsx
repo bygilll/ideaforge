@@ -11,9 +11,12 @@ type ScoreBreakdown = {
 };
 
 type PlanResponse = {
+  asOfLabel: string;
   score: number;
+  asOfContext: string;
   whyThisScore: string;
   scoreBreakdown: ScoreBreakdown;
+  risks: string;
   improvement: string;
   problem: string;
   targetCustomer: string;
@@ -161,7 +164,7 @@ export default function Page() {
                 margin: 0,
               }}
             >
-              이 결과는 문제 강도, 고객 절박성, MVP 실행 용이성, 수익화 가능성, 차별화 가능성을 기준으로 평가한 초기 진단입니다.
+              이 결과는 문제 강도, 필요도, MVP 실행 용이성, 수익화 가능성, 차별화 가능성을 기준으로 평가한 초기 진단입니다.
             </p>
           </div>
 
@@ -206,7 +209,34 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              1. 이 점수의 이유
+              1. 현재 시점 기준 진단
+            </h2>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#666",
+                lineHeight: 1.6,
+                marginTop: 0,
+                marginBottom: 12,
+                fontWeight: 700,
+              }}
+            >
+              기준 시점: {result.asOfLabel}
+            </p>
+            <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
+              {result.asOfContext}
+            </p>
+          </section>
+
+          <section
+            style={{
+              border: "1px solid #e5e5e5",
+              borderRadius: 8,
+              padding: 20,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              2. 이 점수의 이유
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.whyThisScore}
@@ -221,7 +251,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              2. 점수 세부 분석
+              3. 점수 세부 분석
             </h2>
 
             <div style={{ display: "grid", gap: 12 }}>
@@ -233,9 +263,9 @@ export default function Page() {
               </div>
 
               <div>
-                <strong>고객 절박성</strong>: {result.scoreBreakdown.customerUrgency} / 20
+                <strong>필요도</strong>: {result.scoreBreakdown.customerUrgency} / 20
                 <div style={{ fontSize: 14, color: "#666", marginTop: 4 }}>
-                  고객이 지금 당장 해결책을 찾고 싶어 하는 문제인지 평가합니다.
+                  고객이 이 서비스를 실제로 원하고 필요하다고 느낄 가능성을 평가합니다.
                 </div>
               </div>
 
@@ -270,7 +300,30 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              3. 개선 방향
+              4. 핵심 리스크
+            </h2>
+            <pre
+              style={{
+                whiteSpace: "pre-wrap",
+                lineHeight: 1.8,
+                margin: 0,
+                fontFamily: "inherit",
+                fontSize: 16,
+              }}
+            >
+              {result.risks}
+            </pre>
+          </section>
+
+          <section
+            style={{
+              border: "1px solid #e5e5e5",
+              borderRadius: 8,
+              padding: 20,
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
+              5. 개선 방향
             </h2>
             <pre
               style={{
@@ -293,7 +346,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              4. 문제 정의
+              6. 문제 정의
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.problem}
@@ -308,7 +361,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              5. 타겟 고객
+              7. 타겟 고객
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.targetCustomer}
@@ -323,7 +376,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              6. MVP
+              8. MVP
             </h2>
             <p style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, margin: 0 }}>
               {result.mvp}
@@ -338,7 +391,7 @@ export default function Page() {
             }}
           >
             <h2 style={{ fontSize: 18, fontWeight: 800, marginBottom: 12 }}>
-              7. 14일 검증 계획
+              9. 14일 검증 계획
             </h2>
             <pre
               style={{

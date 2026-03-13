@@ -11,9 +11,10 @@ type ScoreBreakdown = {
 };
 
 type ParsedResponse = {
-  score?: number;
+  asOfContext?: string;
   whyThisScore?: string;
   scoreBreakdown?: ScoreBreakdown;
+  risks?: string | string[];
   improvement?: string | string[];
   problem?: string;
   targetCustomer?: string;
@@ -27,7 +28,20 @@ function clamp(value: unknown, min: number, max: number) {
   return Math.max(min, Math.min(max, Math.round(num)));
 }
 
-function normalizeImprovement(value: unknown): string {
+function getAsOfLabel() {
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    year: "2-digit",
+    month: "numeric",
+  }).formatToParts(new Date());
+
+  const year = parts.find((part) => part.type === "year")?.value ?? "";
+  const month = parts.find((part) => part.type === "month")?.value ?? "";
+
+  return `${year}년 ${month}월 현재`;
+}
+
+function normalizeBulletList(value: unknown): string {
   if (Array.isArray(value)) {
     return value
       .map((item) => `- ${String(item).replace(/^-+\s*/, "").trim()}`)
@@ -74,7 +88,7 @@ function normalizeValidationPlan(value: unknown): string {
 
   const lines = normalized
     .split("\n")
-    .map((line) => line.trim())
+    .map((line) => line.trim().replace(/,\s*$/, ""))
     .filter(Boolean);
 
   return lines.join("\n");
@@ -103,6 +117,7 @@ export async function POST(request: NextRequest) {
 
   const idea = typeof body?.idea === "string" ? body.idea.trim() : "";
   const outputLanguage = /[가-힣]/.test(idea) ? "Korean" : "English";
+  const asOfLabel = getAsOfLabel();
 
   if (!idea) {
     return NextResponse.json(
@@ -118,7 +133,7 @@ You must write the entire response in ${outputLanguage} only.
 Do not mix languages.
 
 Return VALID JSON only with these exact keys:
-"whyThisScore", "scoreBreakdown", "improvement", "problem", "targetCustomer", "mvp", "validationPlan".
+"asOfContext", "whyThisScore", "scoreBreakdown", "risks", "improvement", "problem", "targetCustomer", "mvp", "validationPlan".
 
 The "scoreBreakdown" object must have these exact keys:
 "problemSeverity", "customerUrgency", "mvpSimplicity", "monetizationPotential", "differentiationPotential".
@@ -128,9 +143,9 @@ Scoring rubric:
 - Do NOT return a separate total score.
 - The server will calculate the total score by summing the 5 category scores.
 
-Evaluation rules:
+Category meaning:
 - problemSeverity: how painful and meaningful the problem is
-- customerUrgency: whether customers urgently want to solve it
+- customerUrgency: how strongly users would want and need this service
 - mvpSimplicity: how easy and cheap it is to test quickly
 - monetizationPotential: whether users or businesses are likely to pay
 - differentiationPotential: whether the idea has defensible uniqueness
@@ -141,14 +156,31 @@ If the input is meaningless, random text, or too vague to evaluate as a startup 
 - still return valid JSON with all required keys
 
 If the input is a valid startup idea:
+- asOfContext: exactly 2 sentences
+  - first sentence must start with "${asOfLabel}"
+  - mention the current market context or user demand context in a realistic but non-hyped way
 - whyThisScore: exactly 3 sentences
+  - be analytical, not flattering
+  - explain why this idea gets this score now
+- risks: exactly 3 bullet points worth of content
+  - focus on why this idea may fail
+  - be critical and concrete
 - improvement: exactly 3 bullet points worth of content
+  - actionable, specific, and practical
 - problem: 2-3 sentences
 - targetCustomer: 2-3 sentences
 - mvp: 2-4 sentences
-- validationPlan: exactly 14 lines, one line per day
-  - Korean example: "1일차: ..."
-  - English example: "Day 1: ..."
+
+For validationPlan:
+- return exactly 14 lines
+- one line per day
+- Korean format: "1일차: ..."
+- English format: "Day 1: ..."
+- every line must be specific to the user's idea
+- every line must mention idea-related keywords, target users, channels, or domain context
+- avoid generic startup steps that could apply to any idea
+- bad example: "시장 조사", "인터뷰", "MVP 개발 시작" only
+- good example: include concrete references to the idea category, customer type, acquisition channel, trust issue, operational constraint, or niche domain keyword
 
 Do not include markdown fences.
 Return JSON only.`;
@@ -218,10 +250,13 @@ ${idea}`;
       breakdown.differentiationPotential;
 
     return NextResponse.json({
+      asOfLabel,
       score: totalScore,
+      asOfContext: String(parsed.asOfContext ?? ""),
       whyThisScore: String(parsed.whyThisScore ?? ""),
       scoreBreakdown: breakdown,
-      improvement: normalizeImprovement(parsed.improvement),
+      risks: normalizeBulletList(parsed.risks),
+      improvement: normalizeBulletList(parsed.improvement),
       problem: String(parsed.problem ?? ""),
       targetCustomer: String(parsed.targetCustomer ?? ""),
       mvp: String(parsed.mvp ?? ""),
