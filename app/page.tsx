@@ -99,7 +99,7 @@ export default function Page() {
       <textarea
         value={idea}
         onChange={(e) => setIdea(e.target.value)}
-        placeholder="Describe your startup idea in a few sentences..."
+        placeholder={"창업 아이디어를 한두 문장으로 적어보세요\nDescribe your startup idea in a few sentences..."}
         style={{
           width: "100%",
           minHeight: 120,
@@ -138,6 +138,17 @@ export default function Page() {
 
       {result ? (
         <div style={{ display: "grid", gap: 16 }}>
+          <p
+  style={{
+    fontSize: 14,
+    color: "#666",
+    margin: 0,
+    fontWeight: 600,
+  }}
+>
+  Validation Result
+</p>
+
           <section
   style={{
     border: "1px solid #e5e5e5",
