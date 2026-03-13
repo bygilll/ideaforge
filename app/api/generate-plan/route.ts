@@ -32,28 +32,37 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const systemPrompt = `You are a startup validation expert.
+  const systemPrompt = `You are a strict startup validation expert.
 
-Respond in the same language as the user.
+The user may write in Korean or English.
+Always respond in the SAME language as the user's input.
 
-Analyze the startup idea and return JSON in this format:
-
-{
-  "score": number,
-  "problem": "",
-  "targetCustomer": "",
-  "mvp": "",
-  "validationPlan": ""
-}
+You must return VALID JSON only with these exact keys:
+"score", "problem", "targetCustomer", "mvp", "validationPlan".
 
 Scoring rule:
-0 = terrible idea
-10 = excellent idea ready to build
+- 0 = terrible idea
+- 10 = excellent idea ready to build
 
 Be critical and realistic.
 
-Idea:
-${idea}
+If the input is meaningless, random text, or too vague to evaluate as a startup idea:
+- set "score" to 1
+- set "problem" to a short explanation that this is not a valid startup idea
+- set "targetCustomer" to "N/A"
+- set "mvp" to "N/A"
+- set "validationPlan" to "Please enter a real product or service idea."
+
+If the input is a valid startup idea:
+- score: a number from 0 to 10
+- problem: 2-3 sentences
+- targetCustomer: 2-3 sentences
+- mvp: 2-4 sentences
+- validationPlan: either:
+  1) a simple 14-day text plan, or
+  2) a JSON object like {"Day 1":"...", "Day 2":"..."}.
+
+Do not include markdown fences. Return JSON only.`;
 
   const userPrompt = `Startup idea:
 
@@ -109,7 +118,10 @@ ${idea}`;
       problem: String(parsed.problem ?? ""),
       targetCustomer: String(parsed.targetCustomer ?? ""),
       mvp: String(parsed.mvp ?? ""),
-      validationPlan: String(parsed.validationPlan ?? ""),
+      validationPlan:
+        typeof parsed.validationPlan === "string"
+          ? parsed.validationPlan
+          : JSON.stringify(parsed.validationPlan ?? "", null, 2),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Request failed";
@@ -121,10 +133,11 @@ ${idea}`;
 }
 
 function parseJsonContent(content: string): {
+  score?: number;
   problem?: string;
   targetCustomer?: string;
   mvp?: string;
-  validationPlan?: string;
+  validationPlan?: string | Record<string, string>;
 } | null {
   const cleaned = content
     .replace(/^```(?:json)?\s*/i, "")
@@ -132,10 +145,11 @@ function parseJsonContent(content: string): {
 
   try {
     return JSON.parse(cleaned) as {
+      score?: number;
       problem?: string;
       targetCustomer?: string;
       mvp?: string;
-      validationPlan?: string;
+      validationPlan?: string | Record<string, string>;
     };
   } catch {
     return null;
