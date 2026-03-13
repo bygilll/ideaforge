@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
+import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Startup Validation Plan",
-  description: "Turn your startup idea into a 14-day validation plan",
+  title: "IdeaForge AI",
+  description: "AI 창업 검증 도구",
 };
 
 export default function RootLayout({
@@ -12,8 +13,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body>{children}</body>
+    <html lang="ko">
+      <body>
+        {children}
+        <Analytics />
+      </body>
     </html>
   );
 }
