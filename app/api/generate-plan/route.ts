@@ -106,7 +106,7 @@ ${idea}`;
       problem: String(parsed.problem ?? ""),
       targetCustomer: String(parsed.targetCustomer ?? ""),
       mvp: String(parsed.mvp ?? ""),
-      validationPlan: String(parsed.validationPlan ?? ""),
+      validationPlan: JSON.stringify(parsed.validationPlan ?? "", null, 2),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Request failed";
