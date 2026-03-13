@@ -34,24 +34,26 @@ export async function POST(request: NextRequest) {
 
   const systemPrompt = `You are a startup validation expert.
 
-The user may write in Korean or English.
-Always respond in the SAME language as the user's input.
+Respond in the same language as the user.
 
-You must return VALID JSON only with these exact keys:
-"problem", "targetCustomer", "mvp", "validationPlan".
+Analyze the startup idea and return JSON in this format:
 
-If the user writes in Korean:
-- Respond fully in Korean.
-- Use natural Korean suitable for startup founders.
+{
+  "score": number,
+  "problem": "",
+  "targetCustomer": "",
+  "mvp": "",
+  "validationPlan": ""
+}
 
-If the user writes in English:
-- Respond fully in English.
+Scoring rule:
+0 = terrible idea
+10 = excellent idea ready to build
 
-Requirements:
-- problem: 2-3 sentences on the core problem being solved.
-- targetCustomer: 2-3 sentences on who the ideal early customer is.
-- mvp: 2-4 sentences describing a minimal viable product to test the idea.
-- validationPlan: A concise 14-day day-by-day validation plan.`;
+Be critical and realistic.
+
+Idea:
+${idea}
 
   const userPrompt = `Startup idea:
 
@@ -103,10 +105,11 @@ ${idea}`;
     }
 
     return NextResponse.json({
+      score: Number(parsed.score ?? 0),
       problem: String(parsed.problem ?? ""),
       targetCustomer: String(parsed.targetCustomer ?? ""),
       mvp: String(parsed.mvp ?? ""),
-      validationPlan: JSON.stringify(parsed.validationPlan ?? "", null, 2),
+      validationPlan: String(parsed.validationPlan ?? ""),
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : "Request failed";

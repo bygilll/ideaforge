@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 type PlanResponse = {
+  score: number;
   problem: string;
   targetCustomer: string;
   mvp: string;
@@ -137,6 +138,20 @@ export default function Page() {
 
       {result ? (
         <div style={{ display: "grid", gap: 16 }}>
+          <section
+  style={{
+    border: "1px solid #e5e5e5",
+    borderRadius: 8,
+    padding: 16,
+  }}
+>
+  <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>
+    0. Idea Score
+  </h2>
+  <p style={{ fontSize: 28, fontWeight: 700, margin: 0 }}>
+    {result.score} / 10
+  </p>
+</section>
           <section
             style={{
               border: "1px solid #e5e5e5",
