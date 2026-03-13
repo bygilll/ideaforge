@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type ScoreBreakdown = {
   problemSeverity: number;
@@ -24,16 +24,58 @@ type PlanResponse = {
   validationPlan: string;
 };
 
+function firstSentence(text: string) {
+  const normalized = text.replace(/\n/g, " ").trim();
+  if (!normalized) return "";
+
+  const match = normalized.match(/.*?[.!?다]\s|.*$/);
+  return match?.[0]?.trim() ?? normalized;
+}
+
+function firstBullet(text: string) {
+  const lines = text
+    .split("\n")
+    .map((line) => line.replace(/^-+\s*/, "").trim())
+    .filter(Boolean);
+
+  return lines[0] ?? "";
+}
+
 export default function Page() {
   const [idea, setIdea] = useState("");
   const [result, setResult] = useState<PlanResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [copyMessage, setCopyMessage] = useState("");
+  const [downloadMessage, setDownloadMessage] = useState("");
 
-  async function handleGenerate() {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const hasAutoRunRef = useRef(false);
+
+  const cardSummary = useMemo(() => {
+    if (!result) return null;
+
+    return {
+      score: result.score,
+      summary: firstSentence(result.whyThisScore),
+      risk: firstBullet(result.risks),
+      asOfLabel: result.asOfLabel,
+    };
+  }, [result]);
+
+  async function generatePlan(overrideIdea?: string) {
+    const finalIdea = (overrideIdea ?? idea).trim();
+
+    if (!finalIdea) {
+      setError("아이디어를 입력해 주세요.");
+      return;
+    }
+
     setLoading(true);
     setError("");
     setResult(null);
+    setCopyMessage("");
+    setDownloadMessage("");
 
     try {
       const res = await fetch("/api/generate-plan", {
@@ -41,7 +83,7 @@ export default function Page() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ idea }),
+        body: JSON.stringify({ idea: finalIdea }),
       });
 
       const data = await res.json();
@@ -52,12 +94,72 @@ export default function Page() {
       }
 
       setResult(data);
+      setIdea(finalIdea);
+
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.set("idea", finalIdea);
+        window.history.replaceState({}, "", url.toString());
+      }
     } catch {
       setError("요청 처리 중 문제가 발생했습니다.");
     } finally {
       setLoading(false);
     }
   }
+
+  async function handleCopyLink() {
+    if (typeof window === "undefined") return;
+
+    try {
+      const url = new URL(window.location.href);
+      url.searchParams.set("idea", idea.trim());
+
+      await navigator.clipboard.writeText(url.toString());
+      setCopyMessage("링크가 복사되었습니다.");
+      setTimeout(() => setCopyMessage(""), 2000);
+    } catch {
+      setCopyMessage("링크 복사에 실패했습니다.");
+      setTimeout(() => setCopyMessage(""), 2000);
+    }
+  }
+
+  async function handleDownloadCard() {
+    if (!cardRef.current) return;
+
+    try {
+      const htmlToImage = await import("html-to-image");
+      const dataUrl = await htmlToImage.toPng(cardRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+      });
+
+      const link = document.createElement("a");
+      link.download = `ideaforge-card-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+
+      setDownloadMessage("이미지가 저장되었습니다.");
+      setTimeout(() => setDownloadMessage(""), 2000);
+    } catch {
+      setDownloadMessage("이미지 저장에 실패했습니다.");
+      setTimeout(() => setDownloadMessage(""), 2000);
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (hasAutoRunRef.current) return;
+
+    const url = new URL(window.location.href);
+    const sharedIdea = url.searchParams.get("idea");
+
+    if (sharedIdea && sharedIdea.trim()) {
+      hasAutoRunRef.current = true;
+      setIdea(sharedIdea);
+      generatePlan(sharedIdea);
+    }
+  }, []);
 
   return (
     <main
@@ -116,7 +218,7 @@ export default function Page() {
       />
 
       <button
-        onClick={handleGenerate}
+        onClick={() => generatePlan()}
         disabled={loading || !idea.trim()}
         style={{
           width: "100%",
@@ -141,6 +243,253 @@ export default function Page() {
 
       {result ? (
         <div style={{ display: "grid", gap: 16 }}>
+          <section
+            style={{
+              display: "grid",
+              gap: 12,
+            }}
+          >
+            <div
+              ref={cardRef}
+              style={{
+                borderRadius: 20,
+                padding: 24,
+                background: "#111",
+                color: "#fff",
+                display: "grid",
+                gap: 18,
+                boxShadow: "0 10px 30px rgba(0,0,0,0.12)",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  gap: 16,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      fontSize: 22,
+                      fontWeight: 800,
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    IdeaForge AI
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "rgba(255,255,255,0.72)",
+                      marginTop: 4,
+                    }}
+                  >
+                    AI 창업 검증 도구
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: "rgba(255,255,255,0.72)",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {cardSummary?.asOfLabel}
+                </div>
+              </div>
+
+              <div
+                style={{
+                  fontSize: 20,
+                  lineHeight: 1.5,
+                  fontWeight: 700,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "keep-all",
+                }}
+              >
+                {idea}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "160px 1fr",
+                  gap: 16,
+                  alignItems: "start",
+                }}
+              >
+                <div
+                  style={{
+                    padding: "18px 16px",
+                    borderRadius: 16,
+                    background: "#fff",
+                    color: "#111",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "#666",
+                      marginBottom: 8,
+                      fontWeight: 700,
+                    }}
+                  >
+                    IDEA SCORE
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 40,
+                      fontWeight: 800,
+                      letterSpacing: "-0.03em",
+                    }}
+                  >
+                    {result.score}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: 16,
+                      fontWeight: 700,
+                    }}
+                  >
+                    / 100
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    display: "grid",
+                    gap: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: 16,
+                      borderRadius: 16,
+                      background: "rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "rgba(255,255,255,0.72)",
+                        marginBottom: 8,
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      한 줄 진단
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 1.7,
+                        wordBreak: "keep-all",
+                      }}
+                    >
+                      {cardSummary?.summary}
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      padding: 16,
+                      borderRadius: 16,
+                      background: "rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 700,
+                        color: "rgba(255,255,255,0.72)",
+                        marginBottom: 8,
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      핵심 리스크
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 15,
+                        lineHeight: 1.7,
+                        wordBreak: "keep-all",
+                      }}
+                    >
+                      {cardSummary?.risk}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: "flex",
+                gap: 10,
+                flexWrap: "wrap",
+              }}
+            >
+              <button
+                onClick={handleDownloadCard}
+                style={{
+                  padding: "12px 16px",
+                  backgroundColor: "#111",
+                  color: "#fff",
+                  border: "none",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                이미지 저장
+              </button>
+
+              <button
+                onClick={handleCopyLink}
+                style={{
+                  padding: "12px 16px",
+                  backgroundColor: "#f3f3f3",
+                  color: "#111",
+                  border: "1px solid #ddd",
+                  borderRadius: 10,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                링크 복사
+              </button>
+
+              {downloadMessage ? (
+                <span
+                  style={{
+                    fontSize: 14,
+                    color: "#666",
+                    alignSelf: "center",
+                  }}
+                >
+                  {downloadMessage}
+                </span>
+              ) : null}
+
+              {!downloadMessage && copyMessage ? (
+                <span
+                  style={{
+                    fontSize: 14,
+                    color: "#666",
+                    alignSelf: "center",
+                  }}
+                >
+                  {copyMessage}
+                </span>
+              ) : null}
+            </div>
+          </section>
+
           <div
             style={{
               display: "grid",
