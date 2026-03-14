@@ -449,19 +449,32 @@ Category meaning:
 
 If the input is a valid startup idea:
 - asOfContext: exactly 2 sentences
-  - do not just restate the idea
-  - mention current market context, adoption barrier, competitive structure, trust issue, data dependency, operational challenge, or demand realism
+  - this section is ONLY about current market structure, adoption barriers, incumbent behavior, workflow inertia, operational constraints, regulation, trust, or data dependency
+  - do NOT simply restate the user's idea
+  - do NOT explain what the service does
+  - do NOT repeat points that belong in whyThisScore
+  - write like a consultant explaining why this market is hard or favorable right now
+
 - whyThisScore: exactly 3 sentences
-  - explain the score with judgment, not encouragement
-  - explicitly mention at least one structural weakness or execution risk
+  - this section is ONLY about why the idea received this score
+  - explicitly mention which parts of the idea weaken the score, such as low urgency, weak differentiation, hard adoption, unclear willingness to pay, workflow friction, or implementation burden
+  - do NOT repeat broad market context already stated in asOfContext
+  - do NOT say generic things like "execution is difficult" unless you explain what exactly makes it difficult
+  - the user should understand why this idea got this score instead of a higher one
+
 - risks: exactly 3 bullet points worth of content
-  - focus on why this idea may fail
-  - be critical, concrete, and unsentimental
+  - each bullet must describe a concrete failure scenario
+  - do NOT use vague lines like "this may be difficult" or "there may be uncertainty"
+  - each bullet should state what fails, why it fails, and what consequence follows
+  - focus on customer adoption failure, operational failure, trust failure, channel dependency, data dependency, or weak differentiation
+
 - improvement: exactly 3 bullet points worth of content
   - actionable, specific, and practical
-- problem: 2-3 sentences
-- targetCustomer: 2-3 sentences
-- mvp: 2-4 sentences
+  - each bullet should directly address one weakness that lowered the score
+
+- problem: exactly 3 sentences
+- targetCustomer: exactly 3 sentences
+- mvp: exactly 3 sentences
 
 For validationPlan:
 - return exactly 14 lines
@@ -474,6 +487,7 @@ For validationPlan:
 - avoid generic phrases like only "market research", "customer interview", "MVP design", "prototype development", "시장 조사", "고객 인터뷰", "MVP 설계", "프로토타입 개발"
 - each day should feel unusable for a totally unrelated startup idea
 - if a line could apply to any startup idea without changing the noun, rewrite it to be more specific
+- if the idea involves communication workflow, booking flow, CRM flow, brand workflow, creator workflow, seller workflow, or operations workflow, mention those exact workflows instead of describing generic startup tasks
 
 Do not include markdown fences.
 Return JSON only.`;
