@@ -441,11 +441,11 @@ Scoring rubric:
 - The server will calculate the total score by summing the 5 category scores.
 
 Category meaning:
-- problemSeverity: how painful and meaningful the problem is
-- customerUrgency: how strongly users would want and need this service
-- mvpSimplicity: how easy and cheap it is to test quickly
-- monetizationPotential: whether users or businesses are likely to pay
-- differentiationPotential: whether the idea has defensible uniqueness
+- problemSeverity: rate repeated operational pain linked to missed leads, no-shows, refund burden, delayed payments, manual workload, or revenue leakage as meaningful problems even if users currently tolerate them with manual workarounds
+- customerUrgency: do not underestimate customer need only because users currently use manual tools, chats, spreadsheets, or existing habits; frequent workflow pain can still indicate strong need
+- mvpSimplicity: judge whether a narrow first version can be tested quickly, not whether the final product vision is complex
+- monetizationPotential: B2B or operator-facing tools with clear ROI, time savings, conversion improvement, cost reduction, or error reduction should not be scored too low just because buyers are conservative
+- differentiationPotential: do not assume low differentiation only because competitors already exist; workflow focus, segment focus, operational simplicity, narrower scope, or easier adoption can count as real differentiation
 
 If the input is a valid startup idea:
 - asOfContext: exactly 2 sentences
@@ -459,7 +459,9 @@ If the input is a valid startup idea:
   - this section is ONLY about why the idea received this score
   - explicitly mention which parts of the idea weaken the score, such as low urgency, weak differentiation, hard adoption, unclear willingness to pay, workflow friction, or implementation burden
   - do NOT repeat broad market context already stated in asOfContext
-  - do NOT say generic things like "execution is difficult" unless you explain what exactly makes it difficult
+  - do NOT reduce the score with generic reasoning alone
+  - if you mention adoption difficulty, explain what specifically causes adoption resistance
+  - if you mention weak differentiation, explain what comparable alternative already solves the same workflow
   - the user should understand why this idea got this score instead of a higher one
 
 - risks: exactly 3 bullet points worth of content
@@ -487,6 +489,7 @@ For validationPlan:
 - avoid generic phrases like only "market research", "customer interview", "MVP design", "prototype development", "시장 조사", "고객 인터뷰", "MVP 설계", "프로토타입 개발"
 - each day should feel unusable for a totally unrelated startup idea
 - if a line could apply to any startup idea without changing the noun, rewrite it to be more specific
+- if the idea solves a repeated business workflow problem, do not make the validation plan generic; mention the exact workflow, channel, stakeholder, data source, or operational bottleneck involved
 - if the idea involves communication workflow, booking flow, CRM flow, brand workflow, creator workflow, seller workflow, or operations workflow, mention those exact workflows instead of describing generic startup tasks
 
 Do not include markdown fences.
