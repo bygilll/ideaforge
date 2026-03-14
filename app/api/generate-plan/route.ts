@@ -441,8 +441,8 @@ Scoring rubric:
 - The server will calculate the total score by summing the 5 category scores.
 
 Category meaning:
-- problemSeverity: rate repeated operational pain linked to missed leads, no-shows, refund burden, delayed payments, manual workload, or revenue leakage as meaningful problems even if users currently tolerate them with manual workarounds
-- customerUrgency: do not underestimate customer need only because users currently use manual tools, chats, spreadsheets, or existing habits; frequent workflow pain can still indicate strong need
+- problemSeverity: rate repeated operational pain linked to missed inquiries, missed leads, booking loss, no-shows, refund burden, delayed payments, slower response, registration drop, or revenue leakage as meaningful problems even if users currently tolerate them with manual workarounds
+- customerUrgency: do not underestimate customer need only because users currently use manual tools, chats, spreadsheets, or existing habits; if the problem causes missed leads, slower conversion, lower registration, lower booking completion, or customer loss, treat the need as more urgent
 - mvpSimplicity: judge whether a narrow first version can be tested quickly, not whether the final product vision is complex
 - monetizationPotential: B2B or operator-facing tools with clear ROI, time savings, conversion improvement, cost reduction, or error reduction should not be scored too low just because buyers are conservative
 - differentiationPotential: do not assume low differentiation only because competitors already exist; workflow focus, segment focus, operational simplicity, narrower scope, or easier adoption can count as real differentiation
@@ -460,7 +460,7 @@ If the input is a valid startup idea:
   - explicitly mention which parts of the idea weaken the score, such as low urgency, weak differentiation, hard adoption, unclear willingness to pay, workflow friction, or implementation burden
   - do NOT repeat broad market context already stated in asOfContext
   - do NOT reduce the score with generic reasoning alone
-  - if you mention adoption difficulty, explain what specifically causes adoption resistance
+  - if you mention adoption difficulty, explain what specifically causes adoption resistance, and do not let adoption friction dominate the score when the idea clearly reduces missed leads, missed bookings, or conversion loss
   - if you mention weak differentiation, explain what comparable alternative already solves the same workflow
   - the user should understand why this idea got this score instead of a higher one
 
