@@ -158,6 +158,7 @@ function firstBullet(text: string) {
 
 export default function Page() {
   const [idea, setIdea] = useState("");
+  const [isComposing, setIsComposing] = useState(false);
   const [result, setResult] = useState<PlanResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -167,7 +168,7 @@ export default function Page() {
   const cardRef = useRef<HTMLDivElement | null>(null);
   const hasAutoRunRef = useRef(false);
 
-  const activeLanguage: OutputLanguage = detectInputLanguage(idea);
+  const activeLanguage: OutputLanguage = isComposing ? "ko" : detectInputLanguage(idea);
   const inputUi = LABELS[activeLanguage];
   const resultUi = LABELS[result?.language ?? activeLanguage];
 
@@ -331,9 +332,14 @@ export default function Page() {
       </p>
 
       <textarea
-        value={idea}
-        onChange={(e) => setIdea(e.target.value)}
-        placeholder={inputUi.placeholder}
+  value={idea}
+  onChange={(e) => setIdea(e.target.value)}
+  onCompositionStart={() => setIsComposing(true)}
+  onCompositionEnd={(e) => {
+    setIsComposing(false);
+    setIdea(e.currentTarget.value);
+  }}
+  placeholder={inputUi.placeholder}
         style={{
           width: "100%",
           minHeight: 120,
